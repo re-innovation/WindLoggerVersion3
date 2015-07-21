@@ -12,7 +12,7 @@ A datalogger with inputs for measuring wind speed, wind direction, along with cu
   The DataDuino is an Arduino based SD card datalogger.
   A PCF8563 Real Time Clock is used to timestamp the data.
   
-  The pin assisgnments are as follows:
+  The pin assignments are as follows:
   
   D0 - Rx Serial Data
   

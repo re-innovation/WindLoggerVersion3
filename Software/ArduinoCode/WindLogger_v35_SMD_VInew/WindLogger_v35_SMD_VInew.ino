@@ -145,6 +145,9 @@
 #include <avr/power.h>
 #include <PinChangeInt.h>  // For additional interrupts
 
+/************ Application Libraries*****************************/
+#include "battery.h"
+
 /************User variables and hardware allocation**********************************************/
 
 /******* SD CARD*************/
@@ -178,7 +181,7 @@ Rtc_Pcf8563 rtc;
 #define calibrate 6   // This controls if we are in serial calibrate mode or not
 
 #define vanePin A0      // The wind vane with a 10k pull DOWN
-#define battVoltagePin A1   // The battery voltage with a potential divider (470k//100k)
+
 #define voltagePin A2  // The external voltage with a potential divider (680k // 46k)
 #define current1Pin A3  // Current from a hall effect sensor
 
@@ -207,12 +210,8 @@ int windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind
 
 // Lets use a dallas 1-wire sensotr, to save an analog value.
 
-///********* Battery Voltage ****************/
-float batteryVoltage;        // Temporary store for float
-char BatteryVoltStr[6];      // Hold the battery voltage as a string
+///********* External Voltage ****************/
 int  r1,r2;  // The potential divider values  
-
-///********* Battery Voltage ****************/
 float externalVoltage;        // Temporary store for float
 char ExternalVoltStr[6];      // Hold the battery voltage as a string
 
@@ -555,12 +554,8 @@ void loop()
 ////      Serial.println(TempCStr);  
 ////    }   
 
-    // *********** BATTERY VOLTAGE ***************************************
-    // From Vcc-470k-DATA-100k-GND potential divider
-    // This is to test in case battery voltage has dropped too low - alert?
-    batteryVoltage = float(analogRead(battVoltagePin))*(3.3f/1024.0f)*((470.0f+100.0f)/100.0f);        // Temporary store for float
-    dtostrf(batteryVoltage,2,2,BatteryVoltStr);     // Hold the battery voltage as a string
-
+    updateBatteryVoltage(analogRead(battVoltagePin));
+    
     // *********** EXTERNAL VOLTAGE ***************************************
     // From Vcc-680k--46k-GND potential divider
     // This is to test in case battery voltage has dropped too low - alert?
@@ -624,7 +619,7 @@ void loop()
 //    dataString += comma;
 //    dataString += TempCStr; // Temperature
     dataString += comma;
-    dataString += BatteryVoltStr;  // Battery voltage  
+    dataString += getBatteryVoltageStr();  // Battery voltage  
     dataString += comma;
     dataString += ExternalVoltStr;  // Current 1 reading
     dataString += comma;

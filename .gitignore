@@ -1,0 +1,5 @@
+#############
+## Sublime Text project/workspace
+############
+*.sublime-project
+*.sublime-workspace

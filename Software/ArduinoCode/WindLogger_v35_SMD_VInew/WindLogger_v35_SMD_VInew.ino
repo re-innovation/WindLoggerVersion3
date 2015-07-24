@@ -147,6 +147,7 @@
 
 /************ Application Libraries*****************************/
 #include "battery.h"
+#include "external-volts-amps.h"
 
 /************User variables and hardware allocation**********************************************/
 
@@ -182,9 +183,6 @@ Rtc_Pcf8563 rtc;
 
 #define vanePin A0      // The wind vane with a 10k pull DOWN
 
-#define voltagePin A2  // The external voltage with a potential divider (680k // 46k)
-#define current1Pin A3  // Current from a hall effect sensor
-
 /********** Wind Direction Storage *************/
 String WindDirection = " ";  // Empty to start with
 int windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind direction
@@ -210,18 +208,6 @@ int windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind
 
 // Lets use a dallas 1-wire sensotr, to save an analog value.
 
-///********* External Voltage ****************/
-int  r1,r2;  // The potential divider values  
-float externalVoltage;        // Temporary store for float
-char ExternalVoltStr[6];      // Hold the battery voltage as a string
-
-///********* Current 1 ****************/
-long int currentData1;      // Temp holder for value
-float current1;        // Temporary store for float
-float currentOffset;  // Holds the offset current
-int currentOffsetInt;  // Holds the current offset as an in for EEPROM storing
-char Current1Str[7];      // Hold the current as a string
-int iGain;    // Holds the current conversion factor in mV/A
 
 // ****** Serial Data Read***********
 // Variables for the serial data read
@@ -460,24 +446,17 @@ void setup()
   sampleTime = (hiByte << 8)+loByte;  // Get the sensor calibrate value 
   
   // Read the Current Voltage Offset from the EEROM
-  hiByte = EEPROM.read(4);
-  loByte = EEPROM.read(5);
-  currentOffsetInt = (hiByte << 8)+loByte;  // Get the sensor calibrate value
-  currentOffset = float(currentOffsetInt)*3.3f/1023.0f;   // Convert the current offset to a voltage
-  
-  // read the potential divider resistors.
-  hiByte = EEPROM.read(6);
-  loByte = EEPROM.read(7);
-  r1 = (hiByte << 8)+loByte;  // Get the sensor calibrate value
+  setCurrentOffset(EEPROM.read(4),EEPROM.read(5));
 
-  hiByte = EEPROM.read(8);
-  loByte = EEPROM.read(9);
-  r2 = (hiByte << 8)+loByte;  // Get the sensor calibrate value
- 
+  setVoltageDivider(
+    EEPROM.read(6),
+    EEPROM.read(7),
+    EEPROM.read(8),
+    EEPROM.read(9)
+  );
+
   // read the current gain value
-  hiByte = EEPROM.read(10);
-  loByte = EEPROM.read(11);
-  iGain = (hiByte << 8)+loByte;  // Get the sensor calibrate value
+  setCurrentGain(EEPROM.read(10), EEPROM.read(11));
   
   // Interrupt for the 1Hz signal from the RTC
   attachInterrupt(RTCinterrupt, RTC, RISING); 
@@ -554,43 +533,18 @@ void loop()
 ////      Serial.println(TempCStr);  
 ////    }   
 
-    updateBatteryVoltage(analogRead(battVoltagePin));
+    updateBatteryVoltage();
     
     // *********** EXTERNAL VOLTAGE ***************************************
     // From Vcc-680k--46k-GND potential divider
-    // This is to test in case battery voltage has dropped too low - alert?
-    externalVoltage = float(analogRead(voltagePin))*(3.3f/1023.0f)*((float(r1)+float(r2))/float(r2));        // Temporary store for float
-    dtostrf(externalVoltage,2,2,ExternalVoltStr);     // Hold the battery voltage as a string
+    updateExternalVoltage();
     
     // ********** EXTERNAL CURRENTS **************************************
     // Measured using a hall effect current sensor
     // Either using a ACS*** or a LEM HTFS 200-P
     // Comment out whichever you are not using
  
-    currentData1 = 0;  // Reset the value
-    // Lets average the data here over 20 samples.
-    for(int i = 0;i<=19;i++)
-    {  
-      currentData1 += analogRead(current1Pin);
-      delay(2);
-    }
-    current1 = float(currentData1)/20.0f;  
-    current1 = (current1*3.3f/1023.0f) - currentOffset;
-    // Current 1 holds the incoming voltage.
-     
-    // ********** LEM HTFS 200-P SENSOR *********************************
-    // Voutput is Vref +/- 1.25 * Ip/Ipn 
-    // Vref = Vsupply/2 +/1 0.025V (Would be best to remove this with analog stage)
-    //current1 = (current1*200.0f)/1.25f;
-    current1 = current1*float(iGain);  
-  
-//    // ************* ACS*** Hall Effect **********************
-//    // Output is Input Voltage - offset / mV per Amp sensitivity
-//    // Datasheet says 60mV/A     
-
-    
-    // Convert the current to a string.
-    dtostrf(current1,2,2,Current1Str);     // Hold the battery voltage as a string
+    updateExternalCurrent();
   
     // ******** put this data into a file ********************************
     // ****** Check filename *********************************************
@@ -621,9 +575,9 @@ void loop()
     dataString += comma;
     dataString += getBatteryVoltageStr();  // Battery voltage  
     dataString += comma;
-    dataString += ExternalVoltStr;  // Current 1 reading
+    dataString += getExternalVoltageStr();  // Current 1 reading
     dataString += comma;
-    dataString += Current1Str;  // Current 2 reading
+    dataString += getExternalCurrentStr();  // Current 2 reading
  
     
     // ************** Write it to the SD card *************
@@ -1000,56 +954,28 @@ void getData()
             // This will be changed to a calibrate function.
             // When switched on the unit should not have any current through the sensor or this
             // will read incorrectly.
-            currentData1 = 0;  // Reset this holder
-            for(int i = 0;i<=19;i++)
-            {  
-              currentData1 += analogRead(current1Pin);
-              delay(20);
-            }           
-            currentOffsetInt = currentData1/20;
-            
-            currentOffset = float(currentOffsetInt)*3.3f/1023.0f;
-            Serial.print("Ioffset:");
-            Serial.print(currentOffset);
-            Serial.println("V");               // Write this info to EEPROM   
-            EEPROM.write(4, currentOffsetInt >> 8);    // Do this seperately
-            EEPROM.write(5, currentOffsetInt & 0xff);  
+            storeNewCurrentOffset();
           }   
           if(str_buffer[i]=='V'&&str_buffer[i+1]=='1')
-          {    
+          {
             // ******** Change resistor r1 ******************
             String Rstr = str_buffer.substring(i+2,i+5);
             int value = Rstr.toInt();
-            r1 = value;  // Use this new value
-            Serial.print("R1:");
-            Serial.println(value);   
-            // Write this info to EEPROM   
-            EEPROM.write(6, value >> 8);    // Do this seperately
-            EEPROM.write(7, value & 0xff);  
+            storeNewResistor1(value);
           }        
           if(str_buffer[i]=='V'&&str_buffer[i+1]=='2')
           {    
             // ******** Change resistor r1 ******************
             String Rstr = str_buffer.substring(i+2,i+5);
             int value = Rstr.toInt();
-            r2 = value; // Use this new value
-            Serial.print("R2:");
-            Serial.println(value);   
-            // Write this info to EEPROM   
-            EEPROM.write(8, value >> 8);    // Do this seperately
-            EEPROM.write(9, value & 0xff);  
+            storeNewResistor2(value);
           } 
           if(str_buffer[i]=='I')
           {    
             // ******** Change Current gain value (mV) ******************
             String Rstr = str_buffer.substring(i+1,i+4);
             int value = Rstr.toInt();
-            iGain = value; // Use this new value
-            Serial.print("I Gain:");
-            Serial.println(value);   
-            // Write this info to EEPROM   
-            EEPROM.write(10, value >> 8);    // Do this seperately
-            EEPROM.write(11, value & 0xff);  
+            storeNewCurrentGain(value);
           } 
           
         }

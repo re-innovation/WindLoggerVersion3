@@ -5,7 +5,7 @@
 #define battVoltagePin A1   // The battery voltage with a potential divider (470k//100k)
 
 // Public Functions
-void updateBatteryVoltage(uint16_t adc);
+void updateBatteryVoltage(void);
 
 char * getBatteryVoltageStr(void);
 

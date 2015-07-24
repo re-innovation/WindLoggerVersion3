@@ -127,12 +127,20 @@ void storeNewCurrentGain(int value)
     EEPROM.write(11, value & 0xff);  
 }
 
+/* 
+ * updateExternalVoltage
+ * Called by application to read the external voltage
+ */
 void updateExternalVoltage(void)
 {
 	externalVoltage = float(analogRead(voltagePin))*(3.3f/1023.0f)*((float(r1)+float(r2))/float(r2));
     dtostrf(externalVoltage,2,2,ExternalVoltStr);
 }
 
+/* 
+ * updateExternalCurrent
+ * Called by application to read the external current
+ */
 void updateExternalCurrent(void)
 {
 	currentData1 = 0;  // Reset the value
@@ -162,11 +170,19 @@ void updateExternalCurrent(void)
     dtostrf(current1,2,2,Current1Str);     // Hold the battery voltage as a string
 }
 
+/* 
+ * getExternalVoltageStr
+ * Called by application to get the latest voltage string
+ */
 char * getExternalVoltageStr(void)
 {
 	return ExternalVoltStr;
 }
 
+/* 
+ * getExternalCurrentStr
+ * Called by application to get the latest current string
+ */
 char * getExternalCurrentStr(void)
 {
 	return Current1Str;

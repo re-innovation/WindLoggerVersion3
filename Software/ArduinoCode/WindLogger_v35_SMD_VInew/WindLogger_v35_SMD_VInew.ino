@@ -143,11 +143,11 @@
 #include <avr/eeprom.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
-#include <PinChangeInt.h>  // For additional interrupts
 
 /************ Application Libraries*****************************/
 #include "battery.h"
 #include "external-volts-amps.h"
+#include "wind.h"
 
 /************User variables and hardware allocation**********************************************/
 
@@ -172,20 +172,9 @@ Rtc_Pcf8563 rtc;
 #define I2C_RTC 0x51 // 7 bit address (without last bit - look at the datasheet)
 #define RTCinterrupt 0  // RTC interrupt - This is pin 2 of ardunio - which is INT0
 
-/************* Pulse counter *******/
-#define pulseInterrupt 1  // Pulse Counter Interrupt - This is pin 3 of arduino - which is INT1
-#define ANEMOMETER1 3  //   This is digital pin the pulse is attached to
-#define ANEMOMETER2 5  //   This is digital pin the pulse is attached to
-
 /********* I/O Pins *************/
 #define LEDred 4      // The output led is on pin 4
 #define calibrate 6   // This controls if we are in serial calibrate mode or not
-
-#define vanePin A0      // The wind vane with a 10k pull DOWN
-
-/********** Wind Direction Storage *************/
-String WindDirection = " ";  // Empty to start with
-int windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind direction
 
 ///********** Thermistor Data Storage ************/
 //#define thermistor A0  // This is the analog pin for the thermistor
@@ -222,16 +211,7 @@ char deviceID[3]; // A buffer to hold the device ID
 long sampleTime = 2;  // This is the time between samples for the DAQ
                       // Sample time is stored in EEPROM in locations 2 & 3
 
-// Variables for the Pulse Counter
-volatile long pulseCounter1 = 0;  // This counts pulses from the flow sensor  - Needs to be long to hold number
-volatile long pulseCounter1Old = 0;  // This is storage for the old flow sensor - Needs to be long to hold number
-
-volatile long pulseCounter2 = 0;  // This counts pulses from the flow sensor  - Needs to be long to hold number
-volatile long pulseCounter2Old = 0;  // This is storage for the old flow sensor - Needs to be long to hold number
-
 volatile boolean writedataflag = HIGH;  // A flag to tell the code when to write data
-
-long windMaximum = 0;  // This holds the maximum wind speed over the  
 
 // Varibales for writing to EEPROM
 int hiByte;      // These are used to store longer variables into EEPROM
@@ -275,42 +255,6 @@ const char noSD[] PROGMEM = "No SD card";
 char stringBuffer[MAX_STRING];  // A buffer to hold the string when pulled from program memory
 
 /***************************************************
- *  Name:        pulse1
- *
- *  Returns:     Nothing.
- *
- *  Parameters:  None.
- *
- *  Description: Count pulses from Anemometer 1
- *
- ***************************************************/
-void pulse1(void)
-{
-  // If the anemometer has spun around
-  // Increment the pulse counter
-  pulseCounter1++;
-  // ***TO DO**** Might need to debounce this
-}
-
-/***************************************************
- *  Name:        pulse2
- *
- *  Returns:     Nothing.
- *
- *  Parameters:  None.
- *
- *  Description: Count pulses from Anemometer 2
- *
- ***************************************************/
-void pulse2(void)
-{
-  // If the anemometer has spun around
-  // Increment the pulse counter
-  pulseCounter2++;
-  // ***TO DO**** Might need to debounce this
-}
-
-/***************************************************
  *  Name:        RTC
  *
  *  Returns:     Nothing.
@@ -331,11 +275,8 @@ void RTC()
   { 
     // If this interrupt has happened then we want to write data to SD card:
     // Save the pulsecounter value (this will be stored to write to SD card
-    pulseCounter1Old = pulseCounter1;
-    pulseCounter2Old = pulseCounter2;
-   // Reset the pulse counter
-    pulseCounter1 = 0;
-    pulseCounter2 = 0;
+    storeWindPulseCounts();
+
     // Reset the DataCounter
     dataCounter = 0;  
     // Set the writedataflag HIGH
@@ -461,13 +402,7 @@ void setup()
   // Interrupt for the 1Hz signal from the RTC
   attachInterrupt(RTCinterrupt, RTC, RISING); 
   // Attach interrupts for the pulse counting
-  pinMode(ANEMOMETER1, INPUT); 
-  digitalWrite(ANEMOMETER1, HIGH);
-  PCintPort::attachInterrupt(ANEMOMETER1, &pulse1, FALLING);  // add more attachInterrupt code as required
-  pinMode(ANEMOMETER2, INPUT); 
-  digitalWrite(ANEMOMETER2, HIGH);
-  PCintPort::attachInterrupt(ANEMOMETER2, &pulse2, FALLING); 
-
+  setupWindPulseInterrupts();
 }
 
 /***************************************************
@@ -513,12 +448,7 @@ void loop()
     
     // *********** WIND DIRECTION **************************************
     // This can be checked every second and an average used
-    WindDirection = analyseWindDirection();
-    for(int i=0;i<8;i++)
-    {
-      //Resets the wind direction array
-      windDirectionArray[i]=0;
-    }
+    analyseWindDirection();
 
 //    // *********** TEMPERATURE *****************************************
 //    // Two versions of this - either with thermistor or I2C sensor (if connected)
@@ -565,11 +495,11 @@ void loop()
     dataString += comma;
     dataString += String(rtc.formatTime()); // Time
     dataString += comma;
-    dataString += String(pulseCounter1Old); // Wind pulses 1
+    dataString += getPulseCountStr(0);
     dataString += comma;
-    dataString += String(pulseCounter2Old); // Wind pulses 2
+    dataString += getPulseCountStr(1);
     dataString += comma;
-    dataString += WindDirection; // Wind direction
+    dataString += getWindDirectionStr(); // Wind direction
 //    dataString += comma;
 //    dataString += TempCStr; // Temperature
     dataString += comma;
@@ -632,9 +562,9 @@ void loop()
   {
     // DEBUGGING ONLY........
     Serial.print("Anemometer1: ");
-    Serial.println(pulseCounter1, DEC);
+    Serial.println(getLivePulseCount(0), DEC);
     Serial.print("Anemometer2: ");
-    Serial.println(pulseCounter2, DEC);
+    Serial.println(getLivePulseCount(1), DEC);
   }
   
   // A Switch on D7 will set if the unit is in serial adjust mode or not  
@@ -982,114 +912,5 @@ void getData()
         str_buffer="";  // Reset the buffer to be filled again 
       }
     }
-  }
-}
-
-// ******** CALC DIRECTION *********
-// This routine takes in an analog read value and converts it into a wind direction
-// The Wind vane uses a series of resistors to show what direction the wind comes from
-// The different values are (with a 10k to Ground):
-//    R1 = 33k  => 238 N
-//    R2 = 8.2k => 562 NE
-//    R3 = 1k => 930 E
-//    R4 = 2.2k => 839 SE
-//    R5 = 3.9k => 736 S
-//    R6 = 16k => 394 SW
-//    R7 = 120k => 79 W
-//    R8 = 64.9k => 137 NW
-
-// The different values are (with a 10k to Vbattery):
-// The value will be 1024 - vane integer reading
-
-// This means we can 'band' the data into 8 bands
-
-void convertWindDirection(int reading)
-{
-  
-  // The reading has come from the ADC
-  if(reading>0&&reading<100)
-  {
-    windDirectionArray[6]++;
-  }
-  else if(reading>100&&reading<200)
-  {
-    windDirectionArray[7]++;
-  }
-  else if(reading>200&&reading<350)
-  {
-    windDirectionArray[0]++; 
-  }
-  else if(reading>350&&reading<450)
-  {
-    windDirectionArray[5]++;
-  }  
-  else if(reading>450&&reading<650)
-  {
-    windDirectionArray[1]++;
-  }  
-  else if(reading>650&&reading<800)
-  {
-    windDirectionArray[4]++;
-  }
-  else if(reading>800&&reading<900)
-  {
-    windDirectionArray[3]++;
-  }
-  else if(reading>900&&reading<1024)
-  {
-    windDirectionArray[2]++;
-  }
-  else
-  {
-      // This is an error reading
-  }
-}
-
-String analyseWindDirection()
-{
-  // When a data sample period is over we need to see the most frequent wind direction.
-  // This needs to be converted back to a direction and stored on SD
-  
-  int data1 = windDirectionArray[0];
-  int maxIndex = 0;
-  // First need to find the maximum integer in the array
-  for(int i=1;i<8;i++)
-  {
-    if(data1<windDirectionArray[i])
-    {
-      data1=windDirectionArray[i];
-      maxIndex = i;
-    }
-  }
-  // Serial.println(maxIndex);  Testing
-    
-  
-  // Then convert that into the direction
-  switch(maxIndex)
-  {
-    case 0:
-      return("N");
-    break;
-    case 1:
-      return("NE");
-    break;    
-    case 2:
-      return("E");
-    break;  
-    case 3:
-      return("SE");
-    break;
-    case 4:
-      return("S");
-    break;  
-    case 5:
-      return("SW");
-    break;
-    case 6:
-      return("W");
-    break;
-    case 7:
-      return("NW");
-    break;
   }
 }

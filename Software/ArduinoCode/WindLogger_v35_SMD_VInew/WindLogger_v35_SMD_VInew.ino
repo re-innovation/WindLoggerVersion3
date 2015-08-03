@@ -134,6 +134,7 @@
 
 
 /************ External Libraries*****************************/
+#include <EnableInterrupt.h>
 #include <stdlib.h>
 #include <Wire.h>          // Required for RTC
 #include <Rtc_Pcf8563.h>   // RTC library
@@ -152,10 +153,10 @@
 /************User variables and hardware allocation**********************************************/
 
 /******* SD CARD*************/
-#define chipSelect 10 // The SD card Chip Select pin 10
-#define cardDetect 9  // The SD card detect is on pin 6
+#define SD_CHIP_SELECT_PIN 10 // The SD card Chip Select pin 10
+#define SD_CARD_DETECT_PIN 9  // The SD card detect is on pin 6
 // The other SD card pins (D11,D12,D13) are all set within SD.h
-int cardDetectOld = LOW;  // This is the flag for the old reading of the card detect
+int s_lastCardDetect = LOW;  // This is the flag for the old reading of the card detect
 
 // SD file system object
 SdFat sd;
@@ -168,13 +169,13 @@ int counter = 0;   // Clue is in the name - its a counter.
 long dataCounter = 0;  // This holds the number of seconds since the last data store
 
 /*************Real Time Clock*******/
-Rtc_Pcf8563 rtc;
+Rtc_Pcf8563 s_rtc;
 #define I2C_RTC 0x51 // 7 bit address (without last bit - look at the datasheet)
-#define RTCinterrupt 0  // RTC interrupt - This is pin 2 of ardunio - which is INT0
+#define RTC_INTERRUPT_NUMBER 0  // RTC interrupt - This is pin 2 of ardunio - which is INT0
 
 /********* I/O Pins *************/
-#define LEDred 4      // The output led is on pin 4
-#define calibrate 6   // This controls if we are in serial calibrate mode or not
+#define RED_LED_PIN 4      // The output led is on pin 4
+#define CALIBRATE_PIN 6   // This controls if we are in serial calibrate mode or not
 
 ///********** Thermistor Data Storage ************/
 //#define thermistor A0  // This is the analog pin for the thermistor
@@ -238,7 +239,6 @@ boolean debugFlag = LOW;    // Set this if you want to be in debugging mode.
 //**********STRINGS TO USE****************************
 String comma = ",";
 String date;        // The stored date from filename creation
-String newdate;     // The new date, read every time 
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
@@ -267,7 +267,7 @@ char stringBuffer[MAX_STRING];  // A buffer to hold the string when pulled from 
  ***************************************************/
 void RTC()
 { 
-  detachInterrupt(RTCinterrupt);
+  disableInterrupt(RTC_INTERRUPT_NUMBER);
   dataCounter++;
   aliveFlashCounter++;
   
@@ -297,7 +297,7 @@ void RTC()
 void enterSleep(void)
 {
 
-  attachInterrupt(RTCinterrupt, RTC, RISING);
+  enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING);
   
   sleep_enable();
    
@@ -328,7 +328,6 @@ void enterSleep(void)
   ADCSRA = old_ADCSRA;  
 }
 
-
 /***************************************************
  *  Name:        setup
  *
@@ -353,15 +352,15 @@ void setup()
   pinMode(A5, INPUT);           // set pin to input
   digitalWrite(A5, HIGH);       // turn on pullup resistors
   pinMode(2,INPUT);    // Set D2 to be an input for the RTC CLK-OUT   
+
   //initialise the real time clock
-  Rtc_Pcf8563 rtc; 
 
   //initialisetemp();  // Initialise the temperature sensors
-  pinMode(LEDred,OUTPUT);    // Set D4 to be an output LED
-  pinMode(cardDetect,INPUT);  // D9 is the SD card detect on pin 9.
+  pinMode(RED_LED_PIN,OUTPUT);    // Set D4 to be an output LED
+  pinMode(SD_CARD_DETECT_PIN,INPUT);  // D9 is the SD card detect on pin 9.
  
   //Set up digital data lines
-  pinMode(calibrate,INPUT_PULLUP);
+  pinMode(CALIBRATE_PIN,INPUT_PULLUP);
   
   analogReference(EXTERNAL);  // This should be default, but just to be sure
 
@@ -400,7 +399,7 @@ void setup()
   setCurrentGain(EEPROM.read(10), EEPROM.read(11));
   
   // Interrupt for the 1Hz signal from the RTC
-  attachInterrupt(RTCinterrupt, RTC, RISING); 
+  enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING); 
   // Attach interrupts for the pulse counting
   setupWindPulseInterrupts();
 }
@@ -418,6 +417,8 @@ void setup()
 void loop()
 {
 
+  String newdate;     // The new date, read every time 
+
   // *********** WIND DIRECTION **************************************  
   // Want to measure the wind direction every second to give good direction analysis
   // This can be checked every second and an average used
@@ -426,17 +427,17 @@ void loop()
   if(aliveFlashCounter>=10)
   {
     // Flash the LED every 10 seconds to show alive
-    pinMode(LEDred,OUTPUT);    // Set LED to be an output LED 
-    digitalWrite(LEDred, HIGH);   // set the LED ON
+    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
+    digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
     delay(5);
-    digitalWrite(LEDred, LOW);   // set the LED OFF 
+    digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
     aliveFlashCounter=0;  // Reset the counter 
   }
   
   if(writedataflag==HIGH)
   {  
-    pinMode(LEDred,OUTPUT);    // Set LED to be an output LED 
-    digitalWrite(LEDred, HIGH);   // set the LED ON
+    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
+    digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
 
     // *********** WIND SPEED ******************************************
     // Want to get the number of pulses and average into the sample time
@@ -480,7 +481,7 @@ void loop()
     // ****** Check filename *********************************************
     // Each day we want to write a new file.
     // Compare date with previous stored date, every second
-    newdate = String(rtc.formatDate(RTCC_DATE_WORLD));  
+    newdate = String(s_rtc.formatDate(RTCC_DATE_WORLD));  
     if(newdate != date)
     {
        // If date has changed then create a new file
@@ -493,7 +494,7 @@ void loop()
     dataString += comma;
     dataString += newdate;  // Date
     dataString += comma;
-    dataString += String(rtc.formatTime()); // Time
+    dataString += String(s_rtc.formatTime()); // Time
     dataString += comma;
     dataString += getPulseCountStr(0);
     dataString += comma;
@@ -516,14 +517,14 @@ void loop()
     // If card has recently been inserted then initialise the card/filenames
     // If card is not there then flash LEDs
 
-    if(digitalRead(cardDetect)==LOW&&cardDetectOld==HIGH)
+    if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==HIGH)
     {
       delay(100);  // Wait for switch to settle down.
       // There was no card previously so re-initialise and re-check the filename
       initialiseSD();
       createfilename();
     }
-    if(digitalRead(cardDetect)==LOW&&cardDetectOld==LOW)
+    if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==LOW)
     {
       //Ensure that there is a card present)
       // We then write the data to the SD card here:
@@ -535,25 +536,25 @@ void loop()
        Serial.println(dataString);
        Serial.println(getString(noSD));
     }   
-    cardDetectOld = digitalRead(cardDetect);  // Store the old value of the card detect
+    s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect
     
     // Finish up write routine here:    
-    digitalWrite(LEDred, LOW);   // set the LED OFF 
-    pinMode(LEDred,INPUT);    // Set LED to be an INPUT - saves power   
+    digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
+    pinMode(RED_LED_PIN,INPUT);    // Set LED to be an INPUT - saves power   
     writedataflag=LOW;
     Serial.flush();    // Force out the end of the serial data
   }
   
   // Want to check the SD card every second
-  if(digitalRead(cardDetect)==HIGH)
+  if(digitalRead(SD_CARD_DETECT_PIN)==HIGH)
   {
-    pinMode(LEDred,OUTPUT);    // Set LED to be an output LED 
+    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
     // This meands there is no card present so flash the LED every second
     for(int x=0;x<=5;x++)
     {
-      digitalWrite(LEDred, HIGH);   // set the LED ON
+      digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
       delay(5);
-      digitalWrite(LEDred, LOW);   // set the LED ON
+      digitalWrite(RED_LED_PIN, LOW);   // set the LED ON
       delay(50);     
     }
   } 
@@ -570,7 +571,7 @@ void loop()
   // A Switch on D7 will set if the unit is in serial adjust mode or not  
   //calibrateFlag = digitalRead(calibrate);  
   
-  if(digitalRead(calibrate)== HIGH)
+  if(digitalRead(CALIBRATE_PIN)== HIGH)
   {    
     // We ARE in calibrate mode
     Serial.println("Calibrate");    
@@ -582,7 +583,7 @@ void loop()
   }
   else
   {     
-    attachInterrupt(RTCinterrupt, RTC, RISING); 
+    enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING); 
     enterSleep();     
   }
   
@@ -594,15 +595,15 @@ void setupRTC()
     // This section configures the RTC to have a 1Hz output.
   // Its a bit strange as first we read the data from the RTC
   // Then we load it back again but including the correct second flag  
-  rtc.formatDate(RTCC_DATE_WORLD);
-  rtc.formatTime();
+  s_rtc.formatDate(RTCC_DATE_WORLD);
+  s_rtc.formatTime();
   
-  year_int = rtc.getYear();
-  day_int = rtc.getDay();
-  month_int = rtc.getMonth();  
-  hour_int = rtc.getHour();
-  min_int = rtc.getMinute();
-  sec_int = rtc.getSecond(); 
+  year_int = s_rtc.getYear();
+  day_int = s_rtc.getDay();
+  month_int = s_rtc.getMonth();  
+  hour_int = s_rtc.getHour();
+  min_int = s_rtc.getMinute();
+  sec_int = s_rtc.getSecond(); 
   
   Wire.begin(); // Initiate the Wire library and join the I2C bus as a master
   Wire.beginTransmission(I2C_RTC); // Select RTC
@@ -636,14 +637,14 @@ void initialiseSD()
 {
   // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
   // We use SPI_HALF_SPEED here as I am using resistor level shifters.
-  //if (!sd.begin(chipSelect, SPI_HALF_SPEED)) sd.initErrorHalt();
+  //if (!sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) sd.initErrorHalt();
   
   // make sure that the default chip select pin is set to
   // output, even if you don't use it:
-  pinMode(chipSelect, OUTPUT);
+  pinMode(SD_CHIP_SELECT_PIN, OUTPUT);
   
   // see if the card is present and can be initialized:
-  if (!sd.begin(chipSelect, SPI_HALF_SPEED)) {
+  if (!sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
 //    if(debugFlag==HIGH)
 //    {
 //      Serial.println("FAIL");
@@ -670,9 +671,9 @@ void createfilename()
   // DMMDDYY.CSV, where YY is the year MM is the month, DD is the day
   // You must add on the '0' to convert to ASCII
   
-  date = String(rtc.formatDate());
-  day_int = rtc.getDay();  // Get the actual day from the RTC
-  month_int = rtc.getMonth();  // Get the month
+  date = String(s_rtc.formatDate());
+  day_int = s_rtc.getDay();  // Get the actual day from the RTC
+  month_int = s_rtc.getMonth();  // Get the month
   day_int1 = day_int/10;    // Find the first part of the integer
   day_int2 = day_int%10;    // Find the second part of the integer
   month_int1 = month_int/10;    // Find the first part of the integer
@@ -835,12 +836,12 @@ void getData()
               String secondstr = str_buffer.substring(i+5,i+7);
               int second = atoi(&secondstr[0]);
               //hr, min, sec into Real Time Clock
-              rtc.setTime(hour, minute, second);
+              s_rtc.setTime(hour, minute, second);
 
               initialiseSD();
               createfilename();
               
-              Serial.println(String(rtc.formatTime())); // Time
+              Serial.println(String(s_rtc.formatTime())); // Time
           }
           if(str_buffer[i]=='D')
           {
@@ -855,12 +856,12 @@ void getData()
               int year = atoi(&yearstr[0]);          
            
               //day, weekday, month, century(1=1900, 0=2000), year(0-99)
-              rtc.setDate(day, 3, month, 0, year);
+              s_rtc.setDate(day, 3, month, 0, year);
               
               initialiseSD();
               createfilename();
               
-              Serial.println(String(rtc.formatDate(RTCC_DATE_WORLD)));
+              Serial.println(String(s_rtc.formatDate(RTCC_DATE_WORLD)));
           }           
           if(str_buffer[i]=='S')
           {          

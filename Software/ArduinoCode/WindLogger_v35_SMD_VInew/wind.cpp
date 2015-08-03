@@ -8,7 +8,9 @@
  */
 
 #include <Arduino.h>
-#include <PinChangeInt.h>  // For additional interrupts
+
+#define LIBCALL_ENABLEINTERRUPT
+#include <EnableInterrupt.h>
 
 #include "wind.h"
 
@@ -18,7 +20,6 @@
 /********** Wind Direction Storage *************/
 static String WindDirection = " ";  // Empty to start with
 static int windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind direction
-
 
 // Variables for the Pulse Counter
 static volatile long pulseCounter1 = 0;  // This counts pulses from the flow sensor  - Needs to be long to hold number
@@ -77,12 +78,12 @@ static void pulse2(void)
  */
 void setupWindPulseInterrupts()
 {
-  pinMode(ANEMOMETER1, INPUT); 
-  digitalWrite(ANEMOMETER1, HIGH);
-  PCintPort::attachInterrupt(ANEMOMETER1, &pulse1, FALLING);  // add more attachInterrupt code as required
-  pinMode(ANEMOMETER2, INPUT); 
-  digitalWrite(ANEMOMETER2, HIGH);
-  PCintPort::attachInterrupt(ANEMOMETER2, &pulse2, FALLING); 
+	pinMode(ANEMOMETER1, INPUT); 
+	digitalWrite(ANEMOMETER1, HIGH);
+	enableInterrupt(ANEMOMETER1, &pulse1, FALLING);
+	pinMode(ANEMOMETER2, INPUT); 
+	digitalWrite(ANEMOMETER2, HIGH);
+	enableInterrupt(ANEMOMETER2, &pulse2, FALLING); 
 }
 
 // ******** CALC DIRECTION *********

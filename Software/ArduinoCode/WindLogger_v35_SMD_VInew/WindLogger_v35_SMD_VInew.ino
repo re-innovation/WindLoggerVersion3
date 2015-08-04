@@ -120,22 +120,13 @@
  ** CS - pin 10
  ** Card detect - pin 9
  
- //************ Real Time Clock code*******************
- A PCF8563 RTC is attached to pins:
- ** A4 - SDA (serial data)
- ** A5 - SDC (serial clock)
- ** D2 - Clock out - This gives a 1 second pulse to record the data
- 
- RTC PCF8563 code details:
- By Joe Robertson, jmr
- orbitalair@bellsouth.net
- 
 **********************************************************************************************************/
 
 
 /************ External Libraries*****************************/
-#include <EnableInterrupt.h>
 #include <stdlib.h>
+#define LIBCALL_ENABLEINTERRUPT
+#include <EnableInterrupt.h>
 #include <Wire.h>          // Required for RTC
 #include <Rtc_Pcf8563.h>   // RTC library
 #include <SdFat.h>            // SD card library
@@ -149,29 +140,14 @@
 #include "battery.h"
 #include "external-volts-amps.h"
 #include "wind.h"
+#include "rtc.h"
+#include "sd.h"
+#include "utility.h"
+#include "app.h"
 
 /************User variables and hardware allocation**********************************************/
 
-/******* SD CARD*************/
-#define SD_CHIP_SELECT_PIN 10 // The SD card Chip Select pin 10
-#define SD_CARD_DETECT_PIN 9  // The SD card detect is on pin 6
-// The other SD card pins (D11,D12,D13) are all set within SD.h
-int s_lastCardDetect = LOW;  // This is the flag for the old reading of the card detect
-
-// SD file system object
-SdFat sd;
-//Log file
-SdFile datafile;  
-
-//File datafile;   // The logging file
-String dataString;    // This is the holder for the data as a string. Start as blank
 int counter = 0;   // Clue is in the name - its a counter.
-long dataCounter = 0;  // This holds the number of seconds since the last data store
-
-/*************Real Time Clock*******/
-Rtc_Pcf8563 s_rtc;
-#define I2C_RTC 0x51 // 7 bit address (without last bit - look at the datasheet)
-#define RTC_INTERRUPT_NUMBER 0  // RTC interrupt - This is pin 2 of ardunio - which is INT0
 
 /********* I/O Pins *************/
 #define RED_LED_PIN 4      // The output led is on pin 4
@@ -206,14 +182,6 @@ String str_buffer = "";  // This is the holder for the string which we will disp
 
 //********Variables for the Filename*******************
 
-char filename[] = "DXXXXXX.csv";  // This is a holder for the full file name
-char deviceID[3]; // A buffer to hold the device ID
-
-long sampleTime = 2;  // This is the time between samples for the DAQ
-                      // Sample time is stored in EEPROM in locations 2 & 3
-
-volatile boolean writedataflag = HIGH;  // A flag to tell the code when to write data
-
 // Varibales for writing to EEPROM
 int hiByte;      // These are used to store longer variables into EEPROM
 int loByte;
@@ -221,68 +189,18 @@ int loByte;
 // Varibles for 'I'm alive' flash
 int aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
 
-// These next ints are for the filename conversion
-int day_int =0;      // To find the day from the Date for the filename
-int day_int1 =0;
-int day_int2 =0;
-int month_int = 0;
-int month_int1 = 0;
-int month_int2 = 0;
-int year_int = 0;  // Year
-int hour_int = 0;
-int min_int = 0;
-int sec_int = 0;
-
-boolean calibrateFlag = HIGH;  // This flag is lowered if we are in calibrate mode (switch ON)
-boolean debugFlag = LOW;    // Set this if you want to be in debugging mode.
+bool calibrateFlag = HIGH;  // This flag is lowered if we are in calibrate mode (switch ON)
+bool s_debugFlag = LOW;    // Set this if you want to be in debugging mode.
 
 //**********STRINGS TO USE****************************
-String comma = ",";
-String date;        // The stored date from filename creation
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
-const char headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Batt V, Ext V, Current";  // Headers for the top of the file
 const char headersOK[] PROGMEM = "Headers OK";
 const char erroropen[] PROGMEM = "Error open";
 const char error[] PROGMEM = "ERROR";
-const char initialisesd[] PROGMEM = "Init SD";
 const char dateerror[] PROGMEM = "Date ERR";
 const char reference[] PROGMEM = "The ref is:";
-const char noSD[] PROGMEM = "No SD card";
-
-#define MAX_STRING 130      // Sets the maximum length of string probably could be lower
-char stringBuffer[MAX_STRING];  // A buffer to hold the string when pulled from program memory
-
-/***************************************************
- *  Name:        RTC
- *
- *  Returns:     Nothing.
- *
- *  Parameters:  None.
- *
- *  Description: I use the CLK_OUT from the RTC to give me exact 1Hz signal
- *               To do this I changed the initialise the RTC with the CLKOUT at 1Hz
- *
- ***************************************************/
-void RTC()
-{ 
-  disableInterrupt(RTC_INTERRUPT_NUMBER);
-  dataCounter++;
-  aliveFlashCounter++;
-  
-  if(writedataflag==LOW&&dataCounter>=sampleTime)  // This stops us loosing data if a second is missed
-  { 
-    // If this interrupt has happened then we want to write data to SD card:
-    // Save the pulsecounter value (this will be stored to write to SD card
-    storeWindPulseCounts();
-
-    // Reset the DataCounter
-    dataCounter = 0;  
-    // Set the writedataflag HIGH
-    writedataflag=HIGH;
-  }
-}
 
 /***************************************************
  *  Name:        enterSleep
@@ -296,8 +214,7 @@ void RTC()
  ***************************************************/
 void enterSleep(void)
 {
-
-  enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING);
+  RTC_EnableInterrupt();
   
   sleep_enable();
    
@@ -357,8 +274,9 @@ void setup()
 
   //initialisetemp();  // Initialise the temperature sensors
   pinMode(RED_LED_PIN,OUTPUT);    // Set D4 to be an output LED
-  pinMode(SD_CARD_DETECT_PIN,INPUT);  // D9 is the SD card detect on pin 9.
- 
+  
+  SD_Setup();
+  
   //Set up digital data lines
   pinMode(CALIBRATE_PIN,INPUT_PULLUP);
   
@@ -371,19 +289,15 @@ void setup()
 
   // Put unused pins to INPUT to try and save power...      
   
-  setupRTC();  // Initialise the real time clock  
+  RTC_Setup();  // Initialise the real time clock  
   
-  initialiseSD();    // Inisitalise the SD card   
-  createfilename();  // Create the corrct filename (from date)
+  SD_CreateFileForToday();  // Create the corrct filename (from date)
 
   // Read the reference number from the EEROM
-  deviceID[0] = char(EEPROM.read(0));
-  deviceID[1] = char(EEPROM.read(1));
+  SD_SetDeviceID(char(EEPROM.read(0)), char(EEPROM.read(1)));
   
   // Read in the sample time from EEPROM
-  hiByte = EEPROM.read(2);
-  loByte = EEPROM.read(3);
-  sampleTime = (hiByte << 8)+loByte;  // Get the sensor calibrate value 
+  SD_SetSampleTime((EEPROM.read(2) << 8) + EEPROM.read(3));
   
   // Read the Current Voltage Offset from the EEROM
   setCurrentOffset(EEPROM.read(4),EEPROM.read(5));
@@ -399,7 +313,8 @@ void setup()
   setCurrentGain(EEPROM.read(10), EEPROM.read(11));
   
   // Interrupt for the 1Hz signal from the RTC
-  enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING); 
+  RTC_EnableInterrupt();
+
   // Attach interrupts for the pulse counting
   setupWindPulseInterrupts();
 }
@@ -422,7 +337,7 @@ void loop()
   // *********** WIND DIRECTION **************************************  
   // Want to measure the wind direction every second to give good direction analysis
   // This can be checked every second and an average used
-   convertWindDirection(analogRead(vanePin));    // Run this every second. It increments the windDirectionArray 
+  convertWindDirection(analogRead(vanePin));    // Run this every second. It increments the windDirectionArray 
  
   if(aliveFlashCounter>=10)
   {
@@ -434,119 +349,21 @@ void loop()
     aliveFlashCounter=0;  // Reset the counter 
   }
   
-  if(writedataflag==HIGH)
+  if(SD_WriteIsPending())
   {  
     pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
     digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
 
-    // *********** WIND SPEED ******************************************
-    // Want to get the number of pulses and average into the sample time
-    // This gives us the average wind speed
-    // pulsecounterold holds the value of pulses.
-    // This can be converted into the wind speed using the time and 
-    // the pulse-wind speed characterisitic of the anemometer.
-    // Do this as post processing - pulse count is most important.
-    
-    // *********** WIND DIRECTION **************************************
-    // This can be checked every second and an average used
-    analyseWindDirection();
-
-//    // *********** TEMPERATURE *****************************************
-//    // Two versions of this - either with thermistor or I2C sensor (if connected)
-//    // Thermistor version
-//    // Get the temperature readings and store to variables
-//    TempC = Temperature(thermistor,T_CELSIUS,GT_Thermistor_10k,1000.0f);
-//    dtostrf(TempC,2,2,TempCStr);  // Convert the temperature value (double) into a string
-//    
-////    if(debugFlag==HIGH)
-////    {
-////      Serial.print("Therm: ");
-////      Serial.println(TempCStr);  
-////    }   
-
-    updateBatteryVoltage();
-    
-    // *********** EXTERNAL VOLTAGE ***************************************
-    // From Vcc-680k--46k-GND potential divider
-    updateExternalVoltage();
-    
-    // ********** EXTERNAL CURRENTS **************************************
-    // Measured using a hall effect current sensor
-    // Either using a ACS*** or a LEM HTFS 200-P
-    // Comment out whichever you are not using
- 
-    updateExternalCurrent();
-  
-    // ******** put this data into a file ********************************
-    // ****** Check filename *********************************************
-    // Each day we want to write a new file.
-    // Compare date with previous stored date, every second
-    newdate = String(s_rtc.formatDate(RTCC_DATE_WORLD));  
-    if(newdate != date)
-    {
-       // If date has changed then create a new file
-       createfilename();  // Create the corrct filename (from date)
-    }    
-
-    // ********* Create string of data **************************
-    dataString =  String(deviceID[0]); 
-    dataString += deviceID[1];  // Reference
-    dataString += comma;
-    dataString += newdate;  // Date
-    dataString += comma;
-    dataString += String(s_rtc.formatTime()); // Time
-    dataString += comma;
-    dataString += getPulseCountStr(0);
-    dataString += comma;
-    dataString += getPulseCountStr(1);
-    dataString += comma;
-    dataString += getWindDirectionStr(); // Wind direction
-//    dataString += comma;
-//    dataString += TempCStr; // Temperature
-    dataString += comma;
-    dataString += getBatteryVoltageStr();  // Battery voltage  
-    dataString += comma;
-    dataString += getExternalVoltageStr();  // Current 1 reading
-    dataString += comma;
-    dataString += getExternalCurrentStr();  // Current 2 reading
- 
-    
-    // ************** Write it to the SD card *************
-    // This depends upon the card detect.
-    // If card is there then write to the file
-    // If card has recently been inserted then initialise the card/filenames
-    // If card is not there then flash LEDs
-
-    if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==HIGH)
-    {
-      delay(100);  // Wait for switch to settle down.
-      // There was no card previously so re-initialise and re-check the filename
-      initialiseSD();
-      createfilename();
-    }
-    if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==LOW)
-    {
-      //Ensure that there is a card present)
-      // We then write the data to the SD card here:
-      writetoSD();
-    }
-    else
-    {
-       // print to the serial port too:
-       Serial.println(dataString);
-       Serial.println(getString(noSD));
-    }   
-    s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect
+    SD_WriteData();
     
     // Finish up write routine here:    
     digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
     pinMode(RED_LED_PIN,INPUT);    // Set LED to be an INPUT - saves power   
-    writedataflag=LOW;
     Serial.flush();    // Force out the end of the serial data
   }
   
   // Want to check the SD card every second
-  if(digitalRead(SD_CARD_DETECT_PIN)==HIGH)
+  if(!SD_CardIsPresent())
   {
     pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
     // This meands there is no card present so flash the LED every second
@@ -559,7 +376,7 @@ void loop()
     }
   } 
     
-  if(debugFlag==HIGH)
+  if(s_debugFlag==HIGH)
   {
     // DEBUGGING ONLY........
     Serial.print("Anemometer1: ");
@@ -579,173 +396,16 @@ void loop()
     delay(500);  // Some time to read data
     Serial.flush();    // Force out the end of the serial data 
 
-    writedataflag=HIGH;  // Set the write data flag high
+    SD_ForcePendingWrite();
   }
   else
   {     
-    enableInterrupt(RTC_INTERRUPT_NUMBER, RTC, RISING); 
+    RTC_EnableInterrupt(); 
     enterSleep();     
-  }
-  
-}
-
-// Set Up RTC routine
-void setupRTC()
-{
-    // This section configures the RTC to have a 1Hz output.
-  // Its a bit strange as first we read the data from the RTC
-  // Then we load it back again but including the correct second flag  
-  s_rtc.formatDate(RTCC_DATE_WORLD);
-  s_rtc.formatTime();
-  
-  year_int = s_rtc.getYear();
-  day_int = s_rtc.getDay();
-  month_int = s_rtc.getMonth();  
-  hour_int = s_rtc.getHour();
-  min_int = s_rtc.getMinute();
-  sec_int = s_rtc.getSecond(); 
-  
-  Wire.begin(); // Initiate the Wire library and join the I2C bus as a master
-  Wire.beginTransmission(I2C_RTC); // Select RTC
-  Wire.write(0);        // Start address
-  Wire.write(0);     // Control and status 1
-  Wire.write(0);     // Control and status 2
-  Wire.write(DecToBcd(sec_int));     // Second
-  Wire.write(DecToBcd(min_int));    // Minute
-  Wire.write(DecToBcd(hour_int));    // Hour
-  Wire.write(DecToBcd(day_int));    // Day
-  Wire.write(DecToBcd(2));    // Weekday
-  Wire.write(DecToBcd(month_int));     // Month (with century bit = 0)
-  Wire.write(DecToBcd(year_int));    // Year
-  Wire.write(0b10000000);    // Minute alarm (and alarm disabled)
-  Wire.write(0b10000000);    // Hour alarm (and alarm disabled)
-  Wire.write(0b10000000);    // Day alarm (and alarm disabled)
-  Wire.write(0b10000000);    // Weekday alarm (and alarm disabled)
-  Wire.write(0b10000011);     // Output clock frequency enabled (1 Hz) ***THIS IS THE IMPORTANT LINE**
-  Wire.write(0);     // Timer (countdown) disabled
-  Wire.write(0);     // Timer value
-  Wire.endTransmission();
-}
-
-// Converts a decimal to BCD (binary coded decimal)
-byte DecToBcd(byte value){
-  return (value / 10 * 16 + value % 10);
-}
-
-//*********** FUNCTION TO INITIALISE THE SD CARD***************
-void initialiseSD()
-{
-  // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
-  // We use SPI_HALF_SPEED here as I am using resistor level shifters.
-  //if (!sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) sd.initErrorHalt();
-  
-  // make sure that the default chip select pin is set to
-  // output, even if you don't use it:
-  pinMode(SD_CHIP_SELECT_PIN, OUTPUT);
-  
-  // see if the card is present and can be initialized:
-  if (!sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
-//    if(debugFlag==HIGH)
-//    {
-//      Serial.println("FAIL");
-//    }
-    // don't do anything more:
-    // Want to turn on an ERROR LED here
-    return;
-  }
-  else
-  {
-    if(debugFlag==HIGH)
-    {
-      Serial.println(getString(initialisesd));
-    }
-  }
+  }  
 }
 
 // *********FUNCTION TO SORT OUT THE FILENAME**************
-void createfilename()
-{
-  // Check there is a file created with the date in the title
-  // If it does then create a new one with the new name
-  // The name is created from:
-  // DMMDDYY.CSV, where YY is the year MM is the month, DD is the day
-  // You must add on the '0' to convert to ASCII
-  
-  date = String(s_rtc.formatDate());
-  day_int = s_rtc.getDay();  // Get the actual day from the RTC
-  month_int = s_rtc.getMonth();  // Get the month
-  day_int1 = day_int/10;    // Find the first part of the integer
-  day_int2 = day_int%10;    // Find the second part of the integer
-  month_int1 = month_int/10;    // Find the first part of the integer
-  month_int2 = month_int%10;    // Find the second part of the integer
-  filename[1]=(year_int/10) + '0';  // Convert from int to ascii
-  filename[2]=(year_int%10) + '0';  // Convert from int to ascii 
-  filename[3]= month_int1 + '0';  // Convert from int to ascii
-  filename[4]= month_int2 + '0';  // Convert from int to ascii   
-  filename[5]= day_int1 + '0';  // Convert from int to ascii
-  filename[6]= day_int2 + '0';  // Convert from int to ascii 
-  
-  if(debugFlag==HIGH)
-  {
-    Serial.println(filename);
-  }
-  
-  if(!sd.exists(filename))
-  {
-    // open the file for write at end like the Native SD library
-    if (!datafile.open(filename, O_RDWR | O_CREAT | O_AT_END)) 
-    {
-//      if(debugFlag==HIGH)
-//      {
-//        Serial.println(getString(erroropen));
-//      }
-    }
-    // if the file opened okay, write to it:
-    datafile.println(getString(headers));
-    // close the file:
-    datafile.sync();
-//    if(debugFlag==HIGH)
-//    {
-//      Serial.println(getString(headersOK));
-//    }
-  } 
-  else
-  {
-//    if(debugFlag==HIGH)
-//    {
-//      Serial.println("Filename exists");
-//    }
-  }
-  
-}
-
-// This routine writes the dataString to the SD card
-void writetoSD()
-{
-  datafile.open(filename, O_RDWR | O_CREAT | O_AT_END);    // Open the correct file
-  // if the file is available, write to it:
-  if (sd.exists(filename)) {
-    datafile.println(dataString);
-    datafile.close();
-    // print to the serial port too:
-    Serial.println(dataString);
-  }  
-  // if the file isn't open, pop up an error:
-  else {
-//    if(debugFlag==HIGH)
-//    {
-//      Serial.println(getString(erroropen));
-//    }
-  }
-}
-
-// Get a string from program memory
-// This routine pulls the string stored in program memory so we can use it
-// It is temporaily stored in the stringBuffer
-char* getString(const char* str) {
-	strcpy_P(stringBuffer, (char*)str);
-	return stringBuffer;
-}
 
 //// Temperature function outputs float , the actual
 //// temperature
@@ -814,15 +474,14 @@ void getData()
           if(str_buffer[i]=='R')
           {
               // In this case we have changed the house number, so UPDATE and store in EEPROM
-              deviceID[0]=str_buffer[i+1];
-              deviceID[1]=str_buffer[i+2];
-              Serial.print(getString(reference));
-              Serial.print(deviceID[0]);
-              Serial.println(deviceID[1]);
-              EEPROM.write(0,deviceID[0]);
-              EEPROM.write(1,deviceID[1]);
-              initialiseSD();
-              createfilename();
+              SD_SetDeviceID(str_buffer[i+1], str_buffer[i+2]);
+              
+              Serial.print(GetString(reference));
+              Serial.print(str_buffer[i+1]);
+              Serial.println(str_buffer[i+2]);
+              EEPROM.write(0,str_buffer[i+1]);
+              EEPROM.write(1,str_buffer[i+2]);
+              SD_CreateFileForToday();
           }          
           if(str_buffer[i]=='T')
           {
@@ -836,12 +495,11 @@ void getData()
               String secondstr = str_buffer.substring(i+5,i+7);
               int second = atoi(&secondstr[0]);
               //hr, min, sec into Real Time Clock
-              s_rtc.setTime(hour, minute, second);
+              RTC_SetTime(hour, minute, second);
 
-              initialiseSD();
-              createfilename();
+              SD_CreateFileForToday();
               
-              Serial.println(String(s_rtc.formatTime())); // Time
+              Serial.println(RTC_GetTime());
           }
           if(str_buffer[i]=='D')
           {
@@ -855,27 +513,25 @@ void getData()
               String yearstr = str_buffer.substring(i+5,i+7);
               int year = atoi(&yearstr[0]);          
            
-              //day, weekday, month, century(1=1900, 0=2000), year(0-99)
-              s_rtc.setDate(day, 3, month, 0, year);
+              RTC_SetDate(day, month, year);
               
-              initialiseSD();
-              createfilename();
+              SD_CreateFileForToday();
               
-              Serial.println(String(s_rtc.formatDate(RTCC_DATE_WORLD)));
+              Serial.println(RTC_GetDate(RTCC_DATE_WORLD));
           }           
           if(str_buffer[i]=='S')
           {          
               // In this case we have changed the sample time, so UPDATE and store to EEPROM
               // Data will be in the form of 5 x chars, signifying XXXXX, a value from 00001 to 99999 seconds
               
-              sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
+              long sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
               
               EEPROM.write(2, sampleTime >> 8);    // Do this seperately
               EEPROM.write(3, sampleTime & 0xff);
               Serial.print("Sample Time:");
               Serial.println(sampleTime);
               
-              dataCounter=0;  // Reset the data counter to start counting again.
+              SD_ResetCounter();
           }
           
           if(str_buffer[i]=='O')
@@ -914,4 +570,14 @@ void getData()
       }
     }
   }
+}
+
+void APP_SecondTick()
+{
+  aliveFlashCounter++;  
+}
+
+bool APP_InDebugMode()
+{
+  return s_debugFlag;
 }

@@ -137,6 +137,7 @@
 #include <avr/power.h>
 
 /************ Application Libraries*****************************/
+#include "eeprom_storage.h"
 #include "battery.h"
 #include "external-volts-amps.h"
 #include "wind.h"
@@ -283,9 +284,9 @@ void setup()
   analogReference(EXTERNAL);  // This should be default, but just to be sure
 
   // Analog lines
-  pinMode(vanePin,INPUT);
-  pinMode(voltagePin,INPUT);
-  pinMode(current1Pin,INPUT); 
+  pinMode(VANE_PIN,INPUT);
+  pinMode(VOLTAGE_PIN,INPUT);
+  pinMode(CURRENT_1_PIN,INPUT); 
 
   // Put unused pins to INPUT to try and save power...      
   
@@ -293,30 +294,30 @@ void setup()
   
   SD_CreateFileForToday();  // Create the corrct filename (from date)
 
-  // Read the reference number from the EEROM
-  SD_SetDeviceID(char(EEPROM.read(0)), char(EEPROM.read(1)));
+  // Read the reference number from the EEPROM
+  char deviceID[2];
+  EEPROM_GetDeviceID(deviceID);
+  SD_SetDeviceID(deviceID);
   
   // Read in the sample time from EEPROM
-  SD_SetSampleTime((EEPROM.read(2) << 8) + EEPROM.read(3));
+  SD_SetSampleTime( EEPROM_GetSampleTime() );
   
   // Read the Current Voltage Offset from the EEROM
-  setCurrentOffset(EEPROM.read(4),EEPROM.read(5));
+  VA_SetCurrentOffset( EEPROM_GetCurrentOffset() );
 
-  setVoltageDivider(
-    EEPROM.read(6),
-    EEPROM.read(7),
-    EEPROM.read(8),
-    EEPROM.read(9)
+  VA_SetVoltageDivider(
+    EEPROM_GetR1(),
+    EEPROM_GetR2()
   );
 
   // read the current gain value
-  setCurrentGain(EEPROM.read(10), EEPROM.read(11));
+  VA_SetCurrentGain( EEPROM_GetCurrentGain() );
   
   // Interrupt for the 1Hz signal from the RTC
   RTC_EnableInterrupt();
 
   // Attach interrupts for the pulse counting
-  setupWindPulseInterrupts();
+  WIND_SetupWindPulseInterrupts();
 }
 
 /***************************************************
@@ -337,7 +338,7 @@ void loop()
   // *********** WIND DIRECTION **************************************  
   // Want to measure the wind direction every second to give good direction analysis
   // This can be checked every second and an average used
-  convertWindDirection(analogRead(vanePin));    // Run this every second. It increments the windDirectionArray 
+  WIND_ConvertWindDirection(analogRead(VANE_PIN));    // Run this every second. It increments the windDirectionArray 
  
   if(aliveFlashCounter>=10)
   {
@@ -380,9 +381,9 @@ void loop()
   {
     // DEBUGGING ONLY........
     Serial.print("Anemometer1: ");
-    Serial.println(getLivePulseCount(0), DEC);
+    Serial.println(WIND_GetLivePulseCount(0), DEC);
     Serial.print("Anemometer2: ");
-    Serial.println(getLivePulseCount(1), DEC);
+    Serial.println(WIND_GetLivePulseCount(1), DEC);
   }
   
   // A Switch on D7 will set if the unit is in serial adjust mode or not  
@@ -474,13 +475,12 @@ void getData()
           if(str_buffer[i]=='R')
           {
               // In this case we have changed the house number, so UPDATE and store in EEPROM
-              SD_SetDeviceID(str_buffer[i+1], str_buffer[i+2]);
-              
+              SD_SetDeviceID(&str_buffer[i+1]);
+              EEPROM_SetDeviceID(&str_buffer[i+1]);
+
               Serial.print(GetString(reference));
               Serial.print(str_buffer[i+1]);
               Serial.println(str_buffer[i+2]);
-              EEPROM.write(0,str_buffer[i+1]);
-              EEPROM.write(1,str_buffer[i+2]);
               SD_CreateFileForToday();
           }          
           if(str_buffer[i]=='T')
@@ -526,8 +526,8 @@ void getData()
               
               long sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
               
-              EEPROM.write(2, sampleTime >> 8);    // Do this seperately
-              EEPROM.write(3, sampleTime & 0xff);
+              EEPROM_SetSampleTime((uint16_t)sampleTime);              
+              
               Serial.print("Sample Time:");
               Serial.println(sampleTime);
               
@@ -541,28 +541,28 @@ void getData()
             // This will be changed to a calibrate function.
             // When switched on the unit should not have any current through the sensor or this
             // will read incorrectly.
-            storeNewCurrentOffset();
+            VA_StoreNewCurrentOffset();
           }   
           if(str_buffer[i]=='V'&&str_buffer[i+1]=='1')
           {
             // ******** Change resistor r1 ******************
             String Rstr = str_buffer.substring(i+2,i+5);
             int value = Rstr.toInt();
-            storeNewResistor1(value);
+            VA_StoreNewResistor1(value);
           }        
           if(str_buffer[i]=='V'&&str_buffer[i+1]=='2')
           {    
             // ******** Change resistor r1 ******************
             String Rstr = str_buffer.substring(i+2,i+5);
             int value = Rstr.toInt();
-            storeNewResistor2(value);
+            VA_StoreNewResistor2(value);
           } 
           if(str_buffer[i]=='I')
           {    
             // ******** Change Current gain value (mV) ******************
             String Rstr = str_buffer.substring(i+1,i+4);
             int value = Rstr.toInt();
-            storeNewCurrentGain(value);
+            VA_StoreNewCurrentGain(value);
           } 
           
         }

@@ -2,24 +2,24 @@
 #define _EXTERNAL_VOLTS_AMPS_H_
 
 // Defines
-#define voltagePin A2  // The external voltage with a potential divider (680k // 46k)
-#define current1Pin A3  // Current from a hall effect sensor
+#define VOLTAGE_PIN A2  // The external voltage with a potential divider (680k // 46k)
+#define CURRENT_1_PIN A3  // Current from a hall effect sensor
 
 // Public Functions
-void setCurrentOffset(uint8_t hi, uint8_t lo);
-void setCurrentGain(uint8_t hi, uint8_t lo);
+void VA_SetCurrentOffset(int newOffset);
+void VA_SetCurrentGain(int newGain);
 
-void setVoltageDivider(uint8_t hiR1, uint8_t loR1, uint8_t hiR2, uint8_t loR2);
+void VA_SetVoltageDivider(uint16_t newR1, uint16_t newR2);
 
-void storeNewCurrentOffset(void);
-void storeNewResistor1(int value);
-void storeNewResistor2(int value);
-void storeNewCurrentGain(int value);
+void VA_StoreNewCurrentOffset(void);
+void VA_StoreNewResistor1(int value);
+void VA_StoreNewResistor2(int value);
+void VA_StoreNewCurrentGain(int value);
 
-void updateExternalVoltage(void);
-void updateExternalCurrent(void);
+void VA_UpdateExternalVoltage(void);
+void VA_UpdateExternalCurrent(void);
 
-char * getExternalVoltageStr(void);
-char * getExternalCurrentStr(void);
+char * VA_GetExternalVoltageStr(void);
+char * VA_GetExternalCurrentStr(void);
 
 #endif

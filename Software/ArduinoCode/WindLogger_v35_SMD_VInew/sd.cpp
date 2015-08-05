@@ -1,5 +1,5 @@
 /*
- * s_sd.cpp
+ * sd.cpp
  *
  * Application SD card functionality for Wind Data logger
  *
@@ -92,10 +92,10 @@ const char noSD[] PROGMEM = "No SD card";
     }
 }
 
-void SD_SetDeviceID(char id1, char id2)
+void SD_SetDeviceID(char * id)
 {
-	s_deviceID[0] = id1;
-	s_deviceID[1] = id2;
+	s_deviceID[0] = id[0];
+	s_deviceID[1] = id[1];
 }
 
 void SD_SetSampleTime(long newSampleTime)
@@ -213,7 +213,7 @@ static void writeDataString()
 
     // *********** WIND DIRECTION **************************************
     // This can be checked every second and an average used
- 	analyseWindDirection();
+ 	WIND_AnalyseWindDirection();
 
 //    // *********** TEMPERATURE *****************************************
 //    // Two versions of this - either with thermistor or I2C sensor (if connected)
@@ -228,18 +228,18 @@ static void writeDataString()
 ////      Serial.println(TempCStr);  
 ////    }   
 
- 	updateBatteryVoltage();
+ 	BATT_UpdateBatteryVoltage();
 
     // *********** EXTERNAL VOLTAGE ***************************************
     // From Vcc-680k--46k-GND potential divider
- 	updateExternalVoltage();
+ 	VA_UpdateExternalVoltage();
 
     // ********** EXTERNAL CURRENTS **************************************
     // Measured using a hall effect current sensor
     // Either using a ACS*** or a LEM HTFS 200-P
     // Comment out whichever you are not using
 
- 	updateExternalCurrent();
+ 	VA_UpdateExternalCurrent();
 
     // ******** put this data into a file ********************************
     // ****** Check filename *********************************************
@@ -261,19 +261,19 @@ static void writeDataString()
     s_dataString += comma;
     s_dataString += RTC_GetTime(); // Time
     s_dataString += comma;
-    s_dataString += getPulseCountStr(0);
+    s_dataString += WIND_GetPulseCountStr(0);
     s_dataString += comma;
-    s_dataString += getPulseCountStr(1);
+    s_dataString += WIND_GetPulseCountStr(1);
     s_dataString += comma;
-    s_dataString += getWindDirectionStr(); // Wind direction
+    s_dataString += WIND_GetWindDirectionStr(); // Wind direction
 //    s_dataString += comma;
 //    s_dataString += TempCStr; // Temperature
     s_dataString += comma;
-    s_dataString += getBatteryVoltageStr();  // Battery voltage  
+    s_dataString += BATT_GetBatteryVoltageStr();  // Battery voltage  
     s_dataString += comma;
-    s_dataString += getExternalVoltageStr();  // Current 1 reading
+    s_dataString += VA_GetExternalVoltageStr();  // Current 1 reading
     s_dataString += comma;
-    s_dataString += getExternalCurrentStr();  // Current 2 reading
+    s_dataString += VA_GetExternalCurrentStr();  // Current 2 reading
 
     
     // ************** Write it to the SD card *************
@@ -325,7 +325,7 @@ void SD_SecondTick()
     { 
         // If this interrupt has happened then we want to write data to SD card:
         // Save the pulsecounter value (this will be stored to write to SD card)
-    	storeWindPulseCounts();
+    	WIND_StoreWindPulseCounts();
 
         // Reset the DataCounter
     	s_dataCounter = 0;  

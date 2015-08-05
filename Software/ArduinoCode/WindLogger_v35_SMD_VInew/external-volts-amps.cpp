@@ -11,23 +11,24 @@
 #include <EEPROM.h>
 
 #include "external-volts-amps.h"
+#include "eeprom_storage.h"
 
 /* 
  * Private Variables
  */
 
 ///********* External Voltage ****************/
-static int  r1,r2;  // The potential divider values  
-static float externalVoltage;        // Temporary store for float
-static char ExternalVoltStr[6];      // Hold the battery voltage as a string
+static int  s_r1, s_r2;  // The potential divider values  
+static float s_externalVoltage;        // Temporary store for float
+static char  s_externalVoltStr[6];      // Hold the battery voltage as a string
 
 ///********* Current 1 ****************/
 static long int currentData1;      // Temp holder for value
 static float current1;        // Temporary store for float
 static float currentOffset;  // Holds the offset current
 static int currentOffsetInt;  // Holds the current offset as an in for EEPROM storing
-static char Current1Str[7];      // Hold the current as a string
-static int iGain;    // Holds the current conversion factor in mV/A
+static char s_current1Str[7];      // Hold the current as a string
+static int s_iGain;    // Holds the current conversion factor in mV/A
 
 /* 
  * Public Functions
@@ -37,9 +38,9 @@ static int iGain;    // Holds the current conversion factor in mV/A
  * setCurrentOffset
  * Called by application to setup current offset
  */
-void setCurrentOffset(uint8_t hi, uint8_t lo)
+void VA_SetCurrentOffset(int newOffset)
 {
-	currentOffsetInt = (hi << 8)+lo;
+	currentOffsetInt = newOffset;
 	// Convert the current offset to a voltage
   	currentOffset = float(currentOffsetInt)*3.3f/1023.0f;
 }
@@ -48,32 +49,32 @@ void setCurrentOffset(uint8_t hi, uint8_t lo)
  * setCurrentGain
  * Called by application to setup current gain
  */
-void setCurrentGain(uint8_t hi, uint8_t lo)
+void VA_SetCurrentGain(int newGain)
 {
-	iGain = (hi << 8)+lo;
+	s_iGain = newGain;
 }
 
 /* 
  * setVoltageDivider
  * Called by application to set the voltage divider parameters
  */
-void setVoltageDivider(uint8_t hiR1, uint8_t loR1, uint8_t hiR2, uint8_t loR2)
+void VA_SetVoltageDivider(uint16_t newR1, uint16_t newR2)
 {
-	r1 = (hiR1 << 8)+loR1;
-	r2 = (hiR2 << 8)+loR2;
+	s_r1 = newR1;
+	s_r2 = newR2;
 }
 
 /* 
- * storeNewCurrentOffset
+ * VA_StoreNewCurrentOffset
  * Called by application to read a new offset at 0A
  * and store in EEPROM
  */
-void storeNewCurrentOffset(void)
+void VA_StoreNewCurrentOffset(void)
 {
     currentData1 = 0;  // Reset this holder
     for(int i = 0;i<=19;i++)
     {  
-      currentData1 += analogRead(current1Pin);
+      currentData1 += analogRead(CURRENT_1_PIN);
       delay(20);
     }           
     currentOffsetInt = currentData1/20;
@@ -82,73 +83,69 @@ void storeNewCurrentOffset(void)
     Serial.print("Ioffset:");
     Serial.print(currentOffset);
     Serial.println("V");               // Write this info to EEPROM   
-    EEPROM.write(4, currentOffsetInt >> 8);    // Do this seperately
-    EEPROM.write(5, currentOffsetInt & 0xff);  
+    EEPROM_SetCurrentOffset(currentOffsetInt);
 }
 
 /* 
- * storeNewResistor1
- * storeNewResistor2
+ * VA_StoreNewResistor1
+ * VA_StoreNewResistor2
  * Called by application to set new R1 and R2 values
  * and store in EEPROM
  */
-void storeNewResistor1(int value)
+void VA_StoreNewResistor1(int value)
 {
-    r1 = value;  // Use this new value
+    s_r1 = value;  // Use this new value
     Serial.print("R1:");
     Serial.println(value);   
     // Write this info to EEPROM   
-    EEPROM.write(6, value >> 8);    // Do this seperately
-    EEPROM.write(7, value & 0xff);  
+    EEPROM_SetR1(value);    
 }
 
-void storeNewResistor2(int value)
+void VA_StoreNewResistor2(int value)
 {
-    r2 = value; // Use this new value
+    s_r2 = value; // Use this new value
     Serial.print("R2:");
     Serial.println(value);   
     // Write this info to EEPROM   
-    EEPROM.write(8, value >> 8);    // Do this seperately
-    EEPROM.write(9, value & 0xff);  
+    EEPROM_SetR2(value);
 }
 
 /* 
- * storeNewCurrentGain
+ * VA_StoreNewCurrentGain
  * Called by application to set a new current gain
  * and store in EEPROM
  */
-void storeNewCurrentGain(int value)
+void VA_StoreNewCurrentGain(int value)
 {
-	iGain = value; // Use this new value
+	s_iGain = value; // Use this new value
     Serial.print("I Gain:");
     Serial.println(value);   
     // Write this info to EEPROM   
-    EEPROM.write(10, value >> 8);    // Do this seperately
-    EEPROM.write(11, value & 0xff);  
+    EEPROM_SetCurrentGain(value);
 }
 
 /* 
- * updateExternalVoltage
+ * VA_UpdateExternalVoltage
  * Called by application to read the external voltage
  */
-void updateExternalVoltage(void)
+void VA_UpdateExternalVoltage(void)
 {
-	externalVoltage = float(analogRead(voltagePin))*(3.3f/1023.0f)*((float(r1)+float(r2))/float(r2));
-    dtostrf(externalVoltage,2,2,ExternalVoltStr);
+	s_externalVoltage = float(analogRead(VOLTAGE_PIN))*(3.3f/1023.0f)*((float(s_r1)+float(s_r2))/float(s_r2));
+    dtostrf(s_externalVoltage,2,2, s_externalVoltStr);
 }
 
 /* 
- * updateExternalCurrent
+ * VA_UpdateExternalCurrent
  * Called by application to read the external current
  */
-void updateExternalCurrent(void)
+void VA_UpdateExternalCurrent(void)
 {
 	currentData1 = 0;  // Reset the value
 
     // Lets average the data here over 20 samples.
     for(int i = 0;i<=19;i++)
     {  
-      currentData1 += analogRead(current1Pin);
+      currentData1 += analogRead(CURRENT_1_PIN);
       delay(2);
     }
 
@@ -160,30 +157,30 @@ void updateExternalCurrent(void)
     // Voutput is Vref +/- 1.25 * Ip/Ipn 
     // Vref = Vsupply/2 +/1 0.025V (Would be best to remove this with analog stage)
     //current1 = (current1*200.0f)/1.25f;
-    current1 = current1*float(iGain);  
+    current1 = current1*float(s_iGain);  
   
 //    // ************* ACS*** Hall Effect **********************
 //    // Output is Input Voltage - offset / mV per Amp sensitivity
 //    // Datasheet says 60mV/A     
 
     // Convert the current to a string.
-    dtostrf(current1,2,2,Current1Str);     // Hold the battery voltage as a string
+    dtostrf(current1,2,2, s_current1Str);     // Hold the battery voltage as a string
 }
 
 /* 
- * getExternalVoltageStr
+ * VA_GetExternalVoltageStr
  * Called by application to get the latest voltage string
  */
-char * getExternalVoltageStr(void)
+char * VA_GetExternalVoltageStr(void)
 {
-	return ExternalVoltStr;
+	return  s_externalVoltStr;
 }
 
 /* 
- * getExternalCurrentStr
+ * VA_GetExternalCurrentStr
  * Called by application to get the latest current string
  */
-char * getExternalCurrentStr(void)
+char * VA_GetExternalCurrentStr(void)
 {
-	return Current1Str;
+	return s_current1Str;
 }

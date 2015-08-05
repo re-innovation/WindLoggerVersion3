@@ -73,10 +73,10 @@ static void pulse2(void)
  */
 
 /* 
- * setupWindPulseInterrupts
+ * WIND_SetupWindPulseInterrupts
  * Configures pins and interrupts for pulse counting
  */
-void setupWindPulseInterrupts()
+void WIND_SetupWindPulseInterrupts()
 {
 	pinMode(ANEMOMETER1, INPUT); 
 	digitalWrite(ANEMOMETER1, HIGH);
@@ -104,7 +104,7 @@ void setupWindPulseInterrupts()
 
 // This means we can 'band' the data into 8 bands
 
-void convertWindDirection(int reading)
+void WIND_ConvertWindDirection(int reading)
 {
 
  // The reading has come from the ADC
@@ -146,7 +146,7 @@ void convertWindDirection(int reading)
 	}
 }
 
-void analyseWindDirection()
+void WIND_AnalyseWindDirection()
 {
  // When a data sample period is over we need to see the most frequent wind direction.
  // This needs to be converted back to a direction and stored on SD
@@ -202,19 +202,19 @@ void analyseWindDirection()
 }
 
 /* 
- * getWindDirectionStr
+ * WIND_GetWindDirectionStr
  * Called by application to get the latest wind direction string
  */
-String& getWindDirectionStr()
+String& WIND_GetWindDirectionStr()
 {
 	return WindDirection;
 }
 
 /* 
- * getPulseCountStr
+ * WIND_GetPulseCountStr
  * Called by application to get the latest pulse count string
  */
-String& getPulseCountStr(uint8_t counter)
+String& WIND_GetPulseCountStr(uint8_t counter)
 {
 	static String pulseCountString;
 
@@ -235,10 +235,10 @@ String& getPulseCountStr(uint8_t counter)
 }
 
 /* 
- * getLivePulseCount
+ * WIND_GetLivePulseCount
  * Called by application to get the live pulse count
  */
-long getLivePulseCount(uint8_t counter)
+long WIND_GetLivePulseCount(uint8_t counter)
 {
 	long count;
 
@@ -259,10 +259,10 @@ long getLivePulseCount(uint8_t counter)
 }
 
 /* 
- * getWindDirectionStr
+ * WIND_GetWindDirectionStr
  * Saves the latest pulse counts and resets the live counts
  */
-void storeWindPulseCounts()
+void WIND_StoreWindPulseCounts()
 {
 	pulseCounter1Old = pulseCounter1;
     pulseCounter2Old = pulseCounter2;

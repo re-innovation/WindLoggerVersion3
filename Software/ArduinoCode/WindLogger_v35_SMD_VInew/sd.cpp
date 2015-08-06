@@ -14,7 +14,7 @@
 
 /************ Application Libraries*****************************/
 #include "battery.h"
-#include "external-volts-amps.h"
+#include "external_volts_amps.h"
 #include "wind.h"
 #include "rtc.h"
 #include "sd.h"

@@ -139,7 +139,8 @@
 /************ Application Libraries*****************************/
 #include "eeprom_storage.h"
 #include "battery.h"
-#include "external-volts-amps.h"
+#include "external_volts_amps.h"
+#include "serial_handler.h"
 #include "wind.h"
 #include "rtc.h"
 #include "sd.h"
@@ -175,23 +176,13 @@ int counter = 0;   // Clue is in the name - its a counter.
 
 // Lets use a dallas 1-wire sensotr, to save an analog value.
 
-
-// ****** Serial Data Read***********
-// Variables for the serial data read
-char inByte;         // incoming serial char
-String str_buffer = "";  // This is the holder for the string which we will display
-
 //********Variables for the Filename*******************
 
-// Varibales for writing to EEPROM
-int hiByte;      // These are used to store longer variables into EEPROM
-int loByte;
-
 // Varibles for 'I'm alive' flash
-int aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
+static int s_aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
 
-bool calibrateFlag = HIGH;  // This flag is lowered if we are in calibrate mode (switch ON)
-bool s_debugFlag = LOW;    // Set this if you want to be in debugging mode.
+static bool s_calibrateFlag = HIGH;  // This flag is lowered if we are in calibrate mode (switch ON)
+static bool s_debugFlag = LOW;    // Set this if you want to be in debugging mode.
 
 //**********STRINGS TO USE****************************
 
@@ -201,7 +192,6 @@ const char headersOK[] PROGMEM = "Headers OK";
 const char erroropen[] PROGMEM = "Error open";
 const char error[] PROGMEM = "ERROR";
 const char dateerror[] PROGMEM = "Date ERR";
-const char reference[] PROGMEM = "The ref is:";
 
 /***************************************************
  *  Name:        enterSleep
@@ -340,14 +330,14 @@ void loop()
   // This can be checked every second and an average used
   WIND_ConvertWindDirection(analogRead(VANE_PIN));    // Run this every second. It increments the windDirectionArray 
  
-  if(aliveFlashCounter>=10)
+  if(s_aliveFlashCounter>=10)
   {
     // Flash the LED every 10 seconds to show alive
     pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
     digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
     delay(5);
     digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
-    aliveFlashCounter=0;  // Reset the counter 
+    s_aliveFlashCounter=0;  // Reset the counter 
   }
   
   if(SD_WriteIsPending())
@@ -387,13 +377,13 @@ void loop()
   }
   
   // A Switch on D7 will set if the unit is in serial adjust mode or not  
-  //calibrateFlag = digitalRead(calibrate);  
+  //s_calibrateFlag = digitalRead(calibrate);  
   
   if(digitalRead(CALIBRATE_PIN)== HIGH)
   {    
     // We ARE in calibrate mode
     Serial.println("Calibrate");    
-    getData();
+    SERIAL_GetCalibrationData();
     delay(500);  // Some time to read data
     Serial.flush();    // Force out the end of the serial data 
 
@@ -449,132 +439,9 @@ void loop()
 // This sub-routine picks up and serial string sent to the device and sorts out a power string if there is one
 // All values are global, hence nothing is sent/returned
 
-void getData()
-{
-    // **********GET DATA*******************************************
-  // We want to find the bit of interesting data in the serial data stream
-  // If we write H then house number then the code will update the house number in EEPROM
-  // **** aslo need to write code to update RTC
-  
-  for(int i = 0; i<10;i++)  // This helps us just take a 'chunk' of data so does not fill up serial buffer
-  {
-    // get incoming bytes:
-    if (Serial.available() > 0) 
-    {
-     inByte = Serial.read(); 
-     str_buffer+=inByte;
-    
-     if(inByte=='E')    // We read everything up to the byte 'E' which stands for END
-     {
-       int buffer_length = str_buffer.length();  // We also find the length of the string so we know how many char to display 
-       // Depending upon what came before we update different values
-       // To change the reference number we enter R00E, where 00 can be any number up to 99 
-
-        for(int i = buffer_length; i>=0; i--)  // Check the buffer from the end of the data, working backwards
-        {
-          if(str_buffer[i]=='R')
-          {
-              // In this case we have changed the house number, so UPDATE and store in EEPROM
-              SD_SetDeviceID(&str_buffer[i+1]);
-              EEPROM_SetDeviceID(&str_buffer[i+1]);
-
-              Serial.print(GetString(reference));
-              Serial.print(str_buffer[i+1]);
-              Serial.println(str_buffer[i+2]);
-              SD_CreateFileForToday();
-          }          
-          if(str_buffer[i]=='T')
-          {
-              // In this case we have changed the TIME, so UPDATE and store to RTC
-              // The time is in the format  HHMMSS
-              
-              String hourstr = str_buffer.substring(i+1,i+3);
-              int hour = atoi(&hourstr[0]);
-              String minutestr = str_buffer.substring(i+3,i+5);
-              int minute = atoi(&minutestr[0]);
-              String secondstr = str_buffer.substring(i+5,i+7);
-              int second = atoi(&secondstr[0]);
-              //hr, min, sec into Real Time Clock
-              RTC_SetTime(hour, minute, second);
-
-              SD_CreateFileForToday();
-              
-              Serial.println(RTC_GetTime());
-          }
-          if(str_buffer[i]=='D')
-          {
-              // In this case we have changed the DATE, so UPDATE and store to RTC
-              // The time is in the format  DDMMYY
-              
-              String daystr = str_buffer.substring(i+1,i+3);
-              int day = atoi(&daystr[0]);
-              String monthstr = str_buffer.substring(i+3,i+5);
-              int month = atoi(&monthstr[0]);          
-              String yearstr = str_buffer.substring(i+5,i+7);
-              int year = atoi(&yearstr[0]);          
-           
-              RTC_SetDate(day, month, year);
-              
-              SD_CreateFileForToday();
-              
-              Serial.println(RTC_GetDate(RTCC_DATE_WORLD));
-          }           
-          if(str_buffer[i]=='S')
-          {          
-              // In this case we have changed the sample time, so UPDATE and store to EEPROM
-              // Data will be in the form of 5 x chars, signifying XXXXX, a value from 00001 to 99999 seconds
-              
-              long sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
-              
-              EEPROM_SetSampleTime((uint16_t)sampleTime);              
-              
-              Serial.print("Sample Time:");
-              Serial.println(sampleTime);
-              
-              SD_ResetCounter();
-          }
-          
-          if(str_buffer[i]=='O')
-          {    
-            // ******** Recalibrate the offset *******************
-            // We want to measure the offset for the current sensor here. 
-            // This will be changed to a calibrate function.
-            // When switched on the unit should not have any current through the sensor or this
-            // will read incorrectly.
-            VA_StoreNewCurrentOffset();
-          }   
-          if(str_buffer[i]=='V'&&str_buffer[i+1]=='1')
-          {
-            // ******** Change resistor r1 ******************
-            String Rstr = str_buffer.substring(i+2,i+5);
-            int value = Rstr.toInt();
-            VA_StoreNewResistor1(value);
-          }        
-          if(str_buffer[i]=='V'&&str_buffer[i+1]=='2')
-          {    
-            // ******** Change resistor r1 ******************
-            String Rstr = str_buffer.substring(i+2,i+5);
-            int value = Rstr.toInt();
-            VA_StoreNewResistor2(value);
-          } 
-          if(str_buffer[i]=='I')
-          {    
-            // ******** Change Current gain value (mV) ******************
-            String Rstr = str_buffer.substring(i+1,i+4);
-            int value = Rstr.toInt();
-            VA_StoreNewCurrentGain(value);
-          } 
-          
-        }
-        str_buffer="";  // Reset the buffer to be filled again 
-      }
-    }
-  }
-}
-
 void APP_SecondTick()
 {
-  aliveFlashCounter++;  
+  s_aliveFlashCounter++;  
 }
 
 bool APP_InDebugMode()

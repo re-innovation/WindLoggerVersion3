@@ -1,5 +1,5 @@
 /*
- * external-volts-amps.cpp
+ * external_volts_amps.cpp
  *
  * External voltage and current functionality for Wind Data logger
  *
@@ -10,7 +10,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-#include "external-volts-amps.h"
+#include "external_volts_amps.h"
 #include "eeprom_storage.h"
 
 /* 

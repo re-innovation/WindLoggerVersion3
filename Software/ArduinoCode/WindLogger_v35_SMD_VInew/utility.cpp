@@ -46,7 +46,7 @@ byte DecToBcd(byte value)
 }
 
 /***************************************************
- *  Name:        GetString
+ *  Name:        PStringToRAM
  *
  *  Returns:     Pointer to local string buffer
  *
@@ -55,7 +55,7 @@ byte DecToBcd(byte value)
  *  Description: Copies string from flash to RAM and returns pointer to the RAM copy
  *
  ***************************************************/
-char* GetString(const char* str) {
+char* PStringToRAM(const char* str) {
 	strcpy_P(s_progmemBuffer, (char*)str);
 	return s_progmemBuffer;
 }

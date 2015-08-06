@@ -87,7 +87,7 @@ const char noSD[] PROGMEM = "No SD card";
     {
     	if(APP_InDebugMode())
     	{
-    		Serial.println(GetString(initialisesd));
+    		Serial.println(PStringToRAM(initialisesd));
     	}
     }
 }
@@ -125,16 +125,16 @@ void SD_CreateFileForToday()
 		{
 //      if(APP_InDebugMode())
 //      {
-//        Serial.println(GetString(erroropen));
+//        Serial.println(PStringToRAM(erroropen));
 //      }
 		}
     // if the file opened okay, write to it:
-		s_datafile.println(GetString(headers));
+		s_datafile.println(PStringToRAM(headers));
     // close the file:
 		s_datafile.sync();
 //    if(APP_InDebugMode())
 //    {
-//      Serial.println(GetString(headersOK));
+//      Serial.println(PStringToRAM(headersOK));
 //    }
 	} 
 	else
@@ -163,7 +163,7 @@ static void writeDataString()
   	else {
 //    if(APP_InDebugMode())
 //    {
-//      Serial.println(GetString(erroropen));
+//      Serial.println(PStringToRAM(erroropen));
 //    }
   }
 }
@@ -299,7 +299,7 @@ static void writeDataString()
 	{
 	   // print to the serial port too:
 		Serial.println(s_dataString);
-		Serial.println(GetString(noSD));
+		Serial.println(PStringToRAM(noSD));
 	}   
     
     s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect

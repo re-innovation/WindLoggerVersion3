@@ -3,6 +3,6 @@
 
 // Converts a decimal to BCD (binary coded decimal)
 byte DecToBcd(byte value);
-char* GetString(const char* str);
+char* PStringToRAM(const char* str);
 
 #endif

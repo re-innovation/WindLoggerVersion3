@@ -2,7 +2,7 @@
 #define _WIND_H_
 
 // Defines
-#define VANE_PIN A0      // The wind vane with a 10k pull DOWN
+#define VANE_PIN A2      // The wind vane with a 10k pull DOWN
 #define ANEMOMETER1 3  //   This is digital pin the pulse is attached to
 #define ANEMOMETER2 5  //   This is digital pin the pulse is attached to
 

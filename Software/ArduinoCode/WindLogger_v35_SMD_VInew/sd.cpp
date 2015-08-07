@@ -35,7 +35,7 @@
 static long s_dataCounter = 0;  // This holds the number of seconds since the last data store
 static long s_sampleTime = 2;  // This is the time between samples for the DAQ
 
-static volatile bool s_writePending = true;  // A flag to tell the code when to write data
+static volatile bool s_writePending = false;  // A flag to tell the code when to write data
 static String s_date;        // The stored date from filename creation
 
 // The other SD card pins (D11,D12,D13) are all set within s_SD.h
@@ -213,7 +213,10 @@ static void writeDataString()
 
     // *********** WIND DIRECTION **************************************
     // This can be checked every second and an average used
- 	WIND_AnalyseWindDirection();
+ 	    // If this interrupt has happened then we want to write data to SD card:
+    // Save the pulsecounter value (this will be stored to write to SD card)
+    WIND_StoreWindPulseCounts();
+    WIND_AnalyseWindDirection();
 
 //    // *********** TEMPERATURE *****************************************
 //    // Two versions of this - either with thermistor or I2C sensor (if connected)
@@ -298,8 +301,8 @@ static void writeDataString()
 	else
 	{
 	   // print to the serial port too:
+    Serial.println(PStringToRAM(noSD));
 		Serial.println(s_dataString);
-		Serial.println(PStringToRAM(noSD));
 	}   
     
     s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect
@@ -321,17 +324,12 @@ static void writeDataString()
 void SD_SecondTick()
 {
  	s_dataCounter++;
-    if ((s_writePending == LOW) && (s_dataCounter >= s_sampleTime))  // This stops us loosing data if a second is missed
-    { 
-        // If this interrupt has happened then we want to write data to SD card:
-        // Save the pulsecounter value (this will be stored to write to SD card)
-    	WIND_StoreWindPulseCounts();
-
-        // Reset the DataCounter
-    	s_dataCounter = 0;  
-        // Set the s_writePending HIGH
-    	s_writePending=HIGH;
-    }
+  if ((s_writePending == false) && (s_dataCounter >= s_sampleTime))  // This stops us loosing data if a second is missed
+  { 
+    // Reset the DataCounter
+    s_dataCounter = 0;  
+    s_writePending = true;
+  }
 }
 
 /***************************************************
@@ -361,5 +359,5 @@ void SD_ResetCounter()
  ***************************************************/
 bool SD_CardIsPresent()
 {
-	return digitalRead(SD_CARD_DETECT_PIN)==LOW;
+  return digitalRead(SD_CARD_DETECT_PIN)==LOW;
 }

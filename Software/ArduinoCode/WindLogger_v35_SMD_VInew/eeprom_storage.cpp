@@ -54,7 +54,7 @@ void EEPROM_SetDeviceID(char * buffer)
 
 uint16_t EEPROM_GetSampleTime(void)
 {
-	return (EEPROM.read(LOC_SAMPLE_TIME+1) << 8) + EEPROM.read(LOC_SAMPLE_TIME);	
+	return (EEPROM.read(LOC_SAMPLE_TIME) << 8) + EEPROM.read(LOC_SAMPLE_TIME+1);	
 }
 
 void EEPROM_SetSampleTime(uint16_t sampleTime)

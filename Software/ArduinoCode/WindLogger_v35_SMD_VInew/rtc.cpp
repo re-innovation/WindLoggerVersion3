@@ -33,7 +33,7 @@
  */
 
 #define I2C_RTC 0x51 // 7 bit address (without last bit - look at the datasheet)
-#define RTC_INTERRUPT_NUMBER 0  // RTC interrupt - This is pin 2 of ardunio - which is INT0
+#define RTC_INTERRUPT_PIN 2  // RTC interrupt - This is pin 2 of arduino
 
 /* 
  * Private Variables
@@ -60,7 +60,7 @@ static String s_timeString;
  ***************************************************/
 static void rtcInterruptHandler()
 { 
-  disableInterrupt(RTC_INTERRUPT_NUMBER);
+  disableInterrupt(RTC_INTERRUPT_PIN);
 
   SD_SecondTick();
   APP_SecondTick();
@@ -109,12 +109,12 @@ void RTC_Setup()
 
 void RTC_EnableInterrupt()
 {
-	 enableInterrupt(RTC_INTERRUPT_NUMBER, rtcInterruptHandler, RISING);
+	 enableInterrupt(RTC_INTERRUPT_PIN, rtcInterruptHandler, RISING);
 }
 
 void RTC_DisableInterrupt()
 {
-	disableInterrupt(RTC_INTERRUPT_NUMBER);	
+	disableInterrupt(RTC_INTERRUPT_PIN);	
 }
 
 String& RTC_GetDate(int format)

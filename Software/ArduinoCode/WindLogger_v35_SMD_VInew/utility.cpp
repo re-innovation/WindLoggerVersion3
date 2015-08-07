@@ -55,7 +55,7 @@ byte DecToBcd(byte value)
  *  Description: Copies string from flash to RAM and returns pointer to the RAM copy
  *
  ***************************************************/
-char* PStringToRAM(const char* str) {
-	strcpy_P(s_progmemBuffer, (char*)str);
+char* PStringToRAM(const PROGMEM char* str) {
+	strcpy_P(s_progmemBuffer, str);
 	return s_progmemBuffer;
 }

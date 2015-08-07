@@ -344,9 +344,7 @@ void loop()
   {  
     pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
     digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
-
     SD_WriteData();
-    
     // Finish up write routine here:    
     digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
     pinMode(RED_LED_PIN,INPUT);    // Set LED to be an INPUT - saves power   
@@ -391,8 +389,7 @@ void loop()
   }
   else
   {     
-    RTC_EnableInterrupt(); 
-    enterSleep();     
+    enterSleep();    
   }  
 }
 

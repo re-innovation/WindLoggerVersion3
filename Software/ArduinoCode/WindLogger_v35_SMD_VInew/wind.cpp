@@ -224,7 +224,7 @@ String& WIND_GetPulseCountStr(uint8_t counter)
 			pulseCountString = String(pulseCounter1Old);
 			break;
 		case 1:
-			pulseCountString = String(pulseCounter1Old);
+			pulseCountString = String(pulseCounter2Old);
 			break;
 		default:
 			pulseCountString = String("??");

@@ -23,8 +23,8 @@
  * Private Variables
  */
 
-static char next_byte;
-static String str_buffer = "";  // This is the holder for the string which we will display
+static char s_next_byte;
+static String s_strBuffer = "";  // This is the holder for the string which we will display
 
 const char reference[] PROGMEM = "The ref is:";
 
@@ -38,12 +38,12 @@ const char reference[] PROGMEM = "The ref is:";
  */
 static void setReferenceFromBuffer(int i)
 {
-    SD_SetDeviceID(&str_buffer[i+1]);
-    EEPROM_SetDeviceID(&str_buffer[i+1]);
+    SD_SetDeviceID(&s_strBuffer[i+1]);
+    EEPROM_SetDeviceID(&s_strBuffer[i+1]);
 
     Serial.print(PStringToRAM(reference));
-    Serial.print(str_buffer[i+1]);
-    Serial.println(str_buffer[i+2]);
+    Serial.print(s_strBuffer[i+1]);
+    Serial.println(s_strBuffer[i+2]);
     SD_CreateFileForToday();
 }
 
@@ -53,11 +53,11 @@ static void setReferenceFromBuffer(int i)
  */
 static void setTimeFromBuffer(int i)
 {
-    String hourstr = str_buffer.substring(i+1,i+3);
+    String hourstr = s_strBuffer.substring(i+1,i+3);
     int hour = atoi(&hourstr[0]);
-    String minutestr = str_buffer.substring(i+3,i+5);
+    String minutestr = s_strBuffer.substring(i+3,i+5);
     int minute = atoi(&minutestr[0]);
-    String secondstr = str_buffer.substring(i+5,i+7);
+    String secondstr = s_strBuffer.substring(i+5,i+7);
     int second = atoi(&secondstr[0]);
     
     //hr, min, sec into Real Time Clock
@@ -74,11 +74,11 @@ static void setTimeFromBuffer(int i)
  */
 static void setDateFromBuffer(int i)
 {
-    String daystr = str_buffer.substring(i+1,i+3);
+    String daystr = s_strBuffer.substring(i+1,i+3);
     int day = atoi(&daystr[0]);
-    String monthstr = str_buffer.substring(i+3,i+5);
+    String monthstr = s_strBuffer.substring(i+3,i+5);
     int month = atoi(&monthstr[0]);          
-    String yearstr = str_buffer.substring(i+5,i+7);
+    String yearstr = s_strBuffer.substring(i+5,i+7);
     int year = atoi(&yearstr[0]);          
 
     RTC_SetDate(day, month, year);
@@ -94,7 +94,7 @@ static void setDateFromBuffer(int i)
  */
 static void setSampleTimeFromBuffer(int i)
 {
-    long sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
+    long sampleTime = atol(&s_strBuffer[i+1]);  // Convert the string to a long int
 
     EEPROM_SetSampleTime((uint16_t)sampleTime);              
 
@@ -116,64 +116,64 @@ void SERIAL_HandleCalibrationData()
 {
     if (Serial.available() > 0) 
     {
-        next_byte = Serial.read(); 
-        str_buffer += next_byte;
+        s_next_byte = Serial.read(); 
+        s_strBuffer += s_next_byte;
 
-        if (next_byte=='E')    // We read everything up to the byte 'E' which stands for END
+        if (s_next_byte=='E')    // We read everything up to the byte 'E' which stands for END
         {
-            int buffer_length = str_buffer.length();  // We also find the length of the string so we know how many char to display 
+            int buffer_length = s_strBuffer.length();  // We also find the length of the string so we know how many char to display 
             // Depending upon what came before we update different values
             // To change the reference number we enter R00E, where 00 can be any number up to 99 
 
             for (int i = buffer_length; i>=0; i--)  // Check the buffer from the end of the data, working backwards
             {
-                if (str_buffer[i]=='R')
+                if (s_strBuffer[i]=='R')
                 {
                     setReferenceFromBuffer(i);
                 }
 
-                if(str_buffer[i]=='T')
+                if(s_strBuffer[i]=='T')
                 {
                     setTimeFromBuffer(i);
                 }
 
-                if(str_buffer[i]=='D')
+                if(s_strBuffer[i]=='D')
                 {
                     setDateFromBuffer(i);
                 }           
 
-                if(str_buffer[i]=='S')
+                if(s_strBuffer[i]=='S')
                 {          
                     setSampleTimeFromBuffer(i);
                 }
 
-                if(str_buffer[i]=='O')
+                if(s_strBuffer[i]=='O')
                 {    
                     VA_StoreNewCurrentOffset();
                 }
 
-                if(str_buffer[i]=='V'&&str_buffer[i+1]=='1')
+                if(s_strBuffer[i]=='V'&&s_strBuffer[i+1]=='1')
                 {
-                    String Rstr = str_buffer.substring(i+2,i+5);
+                    String Rstr = s_strBuffer.substring(i+2,i+5);
                     int value = Rstr.toInt();
                     VA_StoreNewResistor1(value);
                 }
 
-                if(str_buffer[i]=='V'&&str_buffer[i+1]=='2')
+                if(s_strBuffer[i]=='V'&&s_strBuffer[i+1]=='2')
                 {    
-                    String Rstr = str_buffer.substring(i+2,i+5);
+                    String Rstr = s_strBuffer.substring(i+2,i+5);
                     int value = Rstr.toInt();
                     VA_StoreNewResistor2(value);
                 }
 
-                if(str_buffer[i]=='I')
+                if(s_strBuffer[i]=='I')
                 {    
-                    String Rstr = str_buffer.substring(i+1,i+4);
+                    String Rstr = s_strBuffer.substring(i+1,i+4);
                     int value = Rstr.toInt();
                     VA_StoreNewCurrentGain(value);
                 }          
             }
-            str_buffer="";  // Reset the buffer to be filled again 
+            s_strBuffer="";  // Reset the buffer to be filled again 
         }
     }
 }

@@ -23,10 +23,9 @@ static float s_externalVoltage;        // Temporary store for float
 static char  s_externalVoltStr[6];      // Hold the battery voltage as a string
 
 ///********* Current 1 ****************/
-static long int currentData1;      // Temp holder for value
-static float current1;        // Temporary store for float
-static float currentOffset;  // Holds the offset current
-static int currentOffsetInt;  // Holds the current offset as an in for EEPROM storing
+static long int s_currentData1;      // Temp holder for value
+static float s_current1;        // Temporary store for float
+static float s_currentOffset;  // Holds the offset current
 static char s_current1Str[7];      // Hold the current as a string
 static int s_iGain;    // Holds the current conversion factor in mV/A
 
@@ -40,9 +39,8 @@ static int s_iGain;    // Holds the current conversion factor in mV/A
  */
 void VA_SetCurrentOffset(int newOffset)
 {
-	currentOffsetInt = newOffset;
 	// Convert the current offset to a voltage
-  	currentOffset = float(currentOffsetInt)*3.3f/1023.0f;
+  	s_currentOffset = float(newOffset)*3.3f/1023.0f;
 }
 
 /* 
@@ -71,19 +69,23 @@ void VA_SetVoltageDivider(uint16_t newR1, uint16_t newR2)
  */
 void VA_StoreNewCurrentOffset(void)
 {
-    currentData1 = 0;  // Reset this holder
+    s_currentData1 = 0;  // Reset this holder
     for(int i = 0;i<=19;i++)
     {  
-      currentData1 += analogRead(CURRENT_1_PIN);
+      s_currentData1 += analogRead(CURRENT_1_PIN);
       delay(20);
     }           
-    currentOffsetInt = currentData1/20;
     
-    currentOffset = float(currentOffsetInt)*3.3f/1023.0f;
+    s_currentData1 /= 20;
+
+    VA_SetCurrentOffset(s_currentData1);
+    
     Serial.print("Ioffset:");
-    Serial.print(currentOffset);
-    Serial.println("V");               // Write this info to EEPROM   
-    EEPROM_SetCurrentOffset(currentOffsetInt);
+    Serial.print(s_currentOffset);
+    Serial.println("V");
+
+    // Write the offset to EEPROM   
+    EEPROM_SetCurrentOffset(s_currentData1);
 }
 
 /* 
@@ -140,31 +142,31 @@ void VA_UpdateExternalVoltage(void)
  */
 void VA_UpdateExternalCurrent(void)
 {
-	currentData1 = 0;  // Reset the value
+	s_currentData1 = 0;  // Reset the value
 
     // Lets average the data here over 20 samples.
     for(int i = 0;i<=19;i++)
     {  
-      currentData1 += analogRead(CURRENT_1_PIN);
+      s_currentData1 += analogRead(CURRENT_1_PIN);
       delay(2);
     }
 
-    current1 = float(currentData1)/20.0f;  
-    current1 = (current1*3.3f/1023.0f) - currentOffset;
+    s_current1 = float(s_currentData1)/20.0f;  
+    s_current1 = (s_current1*3.3f/1023.0f) - s_currentOffset;
     // Current 1 holds the incoming voltage.
      
     // ********** LEM HTFS 200-P SENSOR *********************************
     // Voutput is Vref +/- 1.25 * Ip/Ipn 
     // Vref = Vsupply/2 +/1 0.025V (Would be best to remove this with analog stage)
-    //current1 = (current1*200.0f)/1.25f;
-    current1 = current1*float(s_iGain);  
+    //s_current1 = (s_current1*200.0f)/1.25f;
+    s_current1 = s_current1*float(s_iGain);  
   
 //    // ************* ACS*** Hall Effect **********************
 //    // Output is Input Voltage - offset / mV per Amp sensitivity
 //    // Datasheet says 60mV/A     
 
     // Convert the current to a string.
-    dtostrf(current1,2,2, s_current1Str);     // Hold the battery voltage as a string
+    dtostrf(s_current1,2,2, s_current1Str);     // Hold the battery voltage as a string
 }
 
 /* 

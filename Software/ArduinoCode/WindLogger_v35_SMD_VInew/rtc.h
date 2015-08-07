@@ -10,7 +10,7 @@ void RTC_DisableInterrupt();
 
 String& RTC_GetDate(int format = 0);
 String& RTC_GetTime();
-void RTC_GetDDMMYYString(char * buffer);
+void RTC_GetYYMMDDString(char * buffer);
 
 void RTC_SetTime(uint8_t hour, uint8_t minute, uint8_t second);
 void RTC_SetDate(uint8_t day, uint8_t month, uint8_t year);

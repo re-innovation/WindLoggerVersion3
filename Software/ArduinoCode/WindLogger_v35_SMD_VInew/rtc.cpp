@@ -70,9 +70,13 @@ static void rtcInterruptHandler()
  * Public Functions
  */
 
+/* 
+ * RTC_Setup
+ * Called by application to initalise the RTC
+ */
 void RTC_Setup()
 {
-    // This section configures the RTC to have a 1Hz output.
+  // This section configures the RTC to have a 1Hz output.
   // Its a bit strange as first we read the data from the RTC
   // Then we load it back again but including the correct second flag  
   s_rtc.formatDate(RTCC_DATE_WORLD);
@@ -107,6 +111,10 @@ void RTC_Setup()
   Wire.endTransmission();
 }
 
+/* 
+ * RTC_EnableInterrupt, RTC_DisableInterrupt
+ * Enables/disables the RTC interrupt.
+ */
 void RTC_EnableInterrupt()
 {
 	 enableInterrupt(RTC_INTERRUPT_PIN, rtcInterruptHandler, RISING);
@@ -117,19 +125,32 @@ void RTC_DisableInterrupt()
 	disableInterrupt(RTC_INTERRUPT_PIN);	
 }
 
+/* 
+ * RTC_GetDate
+ * Updates the date string (in specified format) and returns a reference to it
+ */
 String& RTC_GetDate(int format)
 {
 	s_dateString = String(s_rtc.formatDate(format));
 	return s_dateString;
 }
 
+/* 
+ * RTC_GetTime
+ * Updates the time string and returns a reference to it
+ */
 String& RTC_GetTime()
 {
 	s_timeString = String(s_rtc.formatTime());
 	return s_timeString;
 }
 
-void RTC_GetDDMMYYString(char * buffer)
+/*
+ * RTC_GetYYMMDDString
+ * Updates the local RTC date and fills the provided buffer with
+ * the date in YYMMDD format.
+ */
+void RTC_GetYYMMDDString(char * buffer)
 {
   s_rtc.formatDate(); // Just updates the RTC date
   
@@ -145,6 +166,10 @@ void RTC_GetDDMMYYString(char * buffer)
   buffer[5]= (day_int%10) + '0';  // Convert from int to ascii 
 }
 
+/*
+ * RTC_SetTime, RTC_SetDate
+ * Sets the RTC time/date
+ */
 void RTC_SetTime(uint8_t hour, uint8_t minute, uint8_t second)
 {
 	s_rtc.setTime(hour, minute, second);

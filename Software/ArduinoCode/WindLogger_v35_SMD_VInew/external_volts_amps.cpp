@@ -35,7 +35,7 @@ static int s_iGain;    // Holds the current conversion factor in mV/A
  */
 
 /* 
- * setCurrentOffset
+ * VA_SetCurrentOffset
  * Called by application to setup current offset
  */
 void VA_SetCurrentOffset(int newOffset)
@@ -46,7 +46,7 @@ void VA_SetCurrentOffset(int newOffset)
 }
 
 /* 
- * setCurrentGain
+ * VA_SetCurrentGain
  * Called by application to setup current gain
  */
 void VA_SetCurrentGain(int newGain)
@@ -55,7 +55,7 @@ void VA_SetCurrentGain(int newGain)
 }
 
 /* 
- * setVoltageDivider
+ * VA_SetVoltageDivider
  * Called by application to set the voltage divider parameters
  */
 void VA_SetVoltageDivider(uint16_t newR1, uint16_t newR2)

@@ -34,6 +34,12 @@ enum eeprom_locations_enum
  * Public Functions
  */
 
+/* 
+ * EEPROM_GetXXX, EEPROM_SetXXX 
+ * For each value in the eeprom_locations_enum,
+ * get and set functions are defined here.
+ */
+
 void EEPROM_GetDeviceID(char * buffer)
 {
 	if (buffer)

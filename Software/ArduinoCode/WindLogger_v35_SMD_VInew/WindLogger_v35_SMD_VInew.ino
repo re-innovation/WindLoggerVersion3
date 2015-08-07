@@ -377,7 +377,7 @@ void loop()
   {    
     // We ARE in calibrate mode
     Serial.println("Calibrate");    
-    SERIAL_GetCalibrationData();
+    SERIAL_HandleCalibrationData();
     delay(500);  // Some time to read data
     Serial.flush();    // Force out the end of the serial data 
 
@@ -427,16 +427,19 @@ void loop()
 //  return T;
 //}
 
-
-// **********************GET DATA SUBROUTINE*****************************************
-// This sub-routine picks up and serial string sent to the device and sorts out a power string if there is one
-// All values are global, hence nothing is sent/returned
-
+/* 
+ * APP_SecondTick
+ * Called by the RTC handler every second
+ */
 void APP_SecondTick()
 {
   s_aliveFlashCounter++;  
 }
 
+/* 
+ * APP_InDebugMode
+ * Used by other modules to check if the application is in debug mode
+ */
 bool APP_InDebugMode()
 {
   return s_debugFlag;

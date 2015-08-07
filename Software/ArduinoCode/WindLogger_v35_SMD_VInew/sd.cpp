@@ -59,11 +59,43 @@ const char initialisesd[] PROGMEM = "Init SD";
 const char noSD[] PROGMEM = "No SD card";
 
 /*
+ * Private Functions
+ */
+
+/*
+ * writeDataString
+ * Opens the current file for writing and appends the current data string
+ */
+static void writeDataString()
+{
+    s_datafile.open(s_filename, O_RDWR | O_CREAT | O_AT_END);    // Open the correct file
+    // if the file is available, write to it:
+    if (s_sd.exists(s_filename))
+    {
+      s_datafile.println(s_dataString);
+      s_datafile.close();
+      // print to the serial port too:
+      Serial.println(s_dataString);
+    }  
+    // if the file isn't open, pop up an error:
+    else {
+//    if(APP_InDebugMode())
+//    {
+//      Serial.println(PStringToRAM(erroropen));
+//    }
+  }
+}
+
+/*
  * Public Functions
  */
 
- void SD_Setup()
- {
+/*
+ * SD_Setup
+ * Initalises the SD card
+ */
+void SD_Setup()
+{
     pinMode(SD_CARD_DETECT_PIN,INPUT);  // D9 is the SD card detect on pin 9.
   // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
   // We use SPI_HALF_SPEED here as I am using resistor level shifters.
@@ -92,17 +124,29 @@ const char noSD[] PROGMEM = "No SD card";
     }
 }
 
+/*
+ * SD_SetDeviceID
+ * Sets the local device ID (the ID gets written to datalogging file)
+ */
 void SD_SetDeviceID(char * id)
 {
 	s_deviceID[0] = id[0];
 	s_deviceID[1] = id[1];
 }
 
+/*
+ * SD_SetSampleTime
+ * Changes the sample time
+ */
 void SD_SetSampleTime(long newSampleTime)
 {
 	s_sampleTime = newSampleTime;
 }
 
+/*
+ * SD_CreateFileForToday
+ * Creates a new file if one doesn't exist for current date.
+ */
 void SD_CreateFileForToday()
 {
   // Check there is a file created with the date in the title
@@ -111,7 +155,7 @@ void SD_CreateFileForToday()
   // DMMDDYY.CSV, where YY is the year MM is the month, DD is the day
   // You must add on the '0' to convert to ASCII
 
-	RTC_GetDDMMYYString(&s_filename[1]);
+	RTC_GetYYMMDDString(&s_filename[1]);
 
 	if(APP_InDebugMode())
 	{
@@ -147,27 +191,6 @@ void SD_CreateFileForToday()
 
 }
 
-// This routine writes the dataString to the SD card
-static void writeDataString()
-{
-  	s_datafile.open(s_filename, O_RDWR | O_CREAT | O_AT_END);    // Open the correct file
-  	// if the file is available, write to it:
-  	if (s_sd.exists(s_filename))
-  	{
-  		s_datafile.println(s_dataString);
-  		s_datafile.close();
-    	// print to the serial port too:
-  		Serial.println(s_dataString);
-  	}  
-  	// if the file isn't open, pop up an error:
-  	else {
-//    if(APP_InDebugMode())
-//    {
-//      Serial.println(PStringToRAM(erroropen));
-//    }
-  }
-}
-
 /***************************************************
  *  Name:        SD_WriteIsPending
  *
@@ -180,7 +203,7 @@ static void writeDataString()
  ***************************************************/
  bool SD_WriteIsPending()
  {
- 	return s_writePending;
+  return s_writePending;
  }
 
 /***************************************************
@@ -195,13 +218,13 @@ static void writeDataString()
  ***************************************************/
  void SD_ForcePendingWrite()
  {
- 	s_writePending = true;
+  s_writePending = true;
  }
 
  void SD_WriteData()
  {
 
- 	String newdate;
+  String newdate;
 
     // *********** WIND SPEED ******************************************
     // Want to get the number of pulses and average into the sample time
@@ -213,7 +236,7 @@ static void writeDataString()
 
     // *********** WIND DIRECTION **************************************
     // This can be checked every second and an average used
- 	    // If this interrupt has happened then we want to write data to SD card:
+      // If this interrupt has happened then we want to write data to SD card:
     // Save the pulsecounter value (this will be stored to write to SD card)
     WIND_StoreWindPulseCounts();
     WIND_AnalyseWindDirection();
@@ -231,33 +254,33 @@ static void writeDataString()
 ////      Serial.println(TempCStr);  
 ////    }   
 
- 	BATT_UpdateBatteryVoltage();
+  BATT_UpdateBatteryVoltage();
 
     // *********** EXTERNAL VOLTAGE ***************************************
     // From Vcc-680k--46k-GND potential divider
- 	VA_UpdateExternalVoltage();
+  VA_UpdateExternalVoltage();
 
     // ********** EXTERNAL CURRENTS **************************************
     // Measured using a hall effect current sensor
     // Either using a ACS*** or a LEM HTFS 200-P
     // Comment out whichever you are not using
 
- 	VA_UpdateExternalCurrent();
+  VA_UpdateExternalCurrent();
 
     // ******** put this data into a file ********************************
     // ****** Check filename *********************************************
     // Each day we want to write a new file.
     // Compare date with previous stored date, every second
- 	newdate = RTC_GetDate(RTCC_DATE_WORLD);
- 	if(newdate != s_date)
- 	{
+  newdate = RTC_GetDate(RTCC_DATE_WORLD);
+  if(newdate != s_date)
+  {
        // If date has changed then create a new file
        s_date = newdate;
        SD_CreateFileForToday();  // Create the corrct filename (from date)
-   	}    
+    }    
 
     // ********* Create string of data **************************
-   	s_dataString =  String(s_deviceID[0]); 
+    s_dataString =  String(s_deviceID[0]); 
     s_dataString += s_deviceID[1];  // Reference
     s_dataString += comma;
     s_dataString += newdate;  // Date
@@ -291,19 +314,19 @@ static void writeDataString()
       // There was no card previously so re-initialise and re-check the filename
       SD_Setup();
       SD_CreateFileForToday();
-	}
-	if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==LOW)
-	{
-	  	//Ensure that there is a card present)
-	  	// We then write the data to the SD card here:
-		writeDataString();
-	}
-	else
-	{
-	   // print to the serial port too:
+  }
+  if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==LOW)
+  {
+      //Ensure that there is a card present)
+      // We then write the data to the SD card here:
+    writeDataString();
+  }
+  else
+  {
+     // print to the serial port too:
     Serial.println(PStringToRAM(noSD));
-		Serial.println(s_dataString);
-	}   
+    Serial.println(s_dataString);
+  }   
     
     s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect
     
@@ -323,7 +346,7 @@ static void writeDataString()
  ***************************************************/
 void SD_SecondTick()
 {
- 	s_dataCounter++;
+  s_dataCounter++;
   if ((s_writePending == false) && (s_dataCounter >= s_sampleTime))  // This stops us loosing data if a second is missed
   { 
     // Reset the DataCounter

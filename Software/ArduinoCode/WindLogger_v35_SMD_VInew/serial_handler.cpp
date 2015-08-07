@@ -20,8 +20,8 @@
 #include "external_volts_amps.h"
 
 /*
-* Private Variables
-*/
+ * Private Variables
+ */
 
 static char next_byte;
 static String str_buffer = "";  // This is the holder for the string which we will display
@@ -29,9 +29,13 @@ static String str_buffer = "";  // This is the holder for the string which we wi
 const char reference[] PROGMEM = "The ref is:";
 
 /*
-* Private Functions
-*/
+ * Private Functions
+ */
 
+/*
+ * setReferenceFromBuffer
+ * Sets the two-byte device ID
+ */
 static void setReferenceFromBuffer(int i)
 {
     SD_SetDeviceID(&str_buffer[i+1]);
@@ -43,6 +47,10 @@ static void setReferenceFromBuffer(int i)
     SD_CreateFileForToday();
 }
 
+/*
+ * setTimeFromBuffer
+ * Sets the RTC time
+ */
 static void setTimeFromBuffer(int i)
 {
     String hourstr = str_buffer.substring(i+1,i+3);
@@ -60,6 +68,10 @@ static void setTimeFromBuffer(int i)
     Serial.println(RTC_GetTime());
 }
 
+/*
+ * setDateFromBuffer
+ * Sets the RTC date
+ */
 static void setDateFromBuffer(int i)
 {
     String daystr = str_buffer.substring(i+1,i+3);
@@ -76,6 +88,10 @@ static void setDateFromBuffer(int i)
     Serial.println(RTC_GetDate(RTCC_DATE_WORLD));
 }
 
+/*
+ * setSampleTimeFromBuffer
+ * Sets the sampling rate (in seconds)
+ */
 static void setSampleTimeFromBuffer(int i)
 {
     long sampleTime = atol(&str_buffer[i+1]);  // Convert the string to a long int
@@ -92,14 +108,12 @@ static void setSampleTimeFromBuffer(int i)
 * Public Functions
 */
 
-void SERIAL_GetCalibrationData()
+/*
+ * SERIAL_HandleCalibrationData
+ * Reads calibration settings from serial and hands off processing to appropriate functions
+ */
+void SERIAL_HandleCalibrationData()
 {
-    // **********GET DATA*******************************************
-    // We want to find the bit of interesting data in the serial data stream
-    // If we write H then house number then the code will update the house number in EEPROM
-    // **** aslo need to write code to update RTC
-
-    // get incoming bytes:
     if (Serial.available() > 0) 
     {
         next_byte = Serial.read(); 

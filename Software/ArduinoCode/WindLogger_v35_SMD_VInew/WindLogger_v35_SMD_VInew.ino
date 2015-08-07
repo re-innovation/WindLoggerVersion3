@@ -147,10 +147,6 @@
 #include "utility.h"
 #include "app.h"
 
-/************User variables and hardware allocation**********************************************/
-
-int counter = 0;   // Clue is in the name - its a counter.
-
 /********* I/O Pins *************/
 #define RED_LED_PIN 4      // The output led is on pin 4
 #define CALIBRATE_PIN 6   // This controls if we are in serial calibrate mode or not

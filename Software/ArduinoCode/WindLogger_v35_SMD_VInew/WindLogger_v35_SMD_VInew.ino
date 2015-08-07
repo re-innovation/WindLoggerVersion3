@@ -132,11 +132,9 @@
 #include <SdFat.h>            // SD card library
 #include <avr/pgmspace.h>  // Library for putting data into program memory
 #include <EEPROM.h>        // For writing values to the EEPROM
-#include <avr/eeprom.h>
-#include <avr/sleep.h>
-#include <avr/power.h>
 
 /************ Application Libraries*****************************/
+#include "sleep.h"
 #include "eeprom_storage.h"
 #include "battery.h"
 #include "external_volts_amps.h"
@@ -176,8 +174,6 @@
 
 // Varibles for 'I'm alive' flash
 static int s_aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
-
-static bool s_calibrateFlag = HIGH;  // This flag is lowered if we are in calibrate mode (switch ON)
 static bool s_debugFlag = LOW;    // Set this if you want to be in debugging mode.
 
 //**********STRINGS TO USE****************************
@@ -188,49 +184,6 @@ const char headersOK[] PROGMEM = "Headers OK";
 const char erroropen[] PROGMEM = "Error open";
 const char error[] PROGMEM = "ERROR";
 const char dateerror[] PROGMEM = "Date ERR";
-
-/***************************************************
- *  Name:        enterSleep
- *
- *  Returns:     Nothing.
- *
- *  Parameters:  None.
- *
- *  Description: Enters the arduino into sleep mode.
- *
- ***************************************************/
-void enterSleep(void)
-{
-  RTC_EnableInterrupt();
-  
-  sleep_enable();
-   
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
-  
-  byte old_ADCSRA = ADCSRA;  // Store the old value to re-enable 
-  // disable ADC
-  ADCSRA = 0;
-
-  byte old_PRR = PRR;  // Store previous version on PRR
-  // turn off various modules
-  PRR = 0b11111111;
-  
-  sleep_cpu();
-  /* The program will continue from here. */
-  /************* ASLEEP *******************/
-  
-  // ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ //
-  
-  /************** WOKEN UP ***************/
-  /* First thing to do is disable sleep. */
-  sleep_disable();
-  
-  // turn ON various modules USART and ADC
-  PRR = old_PRR;  
-  
-  // enable ADC
-  ADCSRA = old_ADCSRA;  
-}
 
 /***************************************************
  *  Name:        setup
@@ -359,8 +312,8 @@ void loop()
       digitalWrite(RED_LED_PIN, LOW);   // set the LED ON
       delay(50);     
     }
-  } 
-    
+  }
+  
   if(s_debugFlag==HIGH)
   {
     // DEBUGGING ONLY........
@@ -371,8 +324,6 @@ void loop()
   }
   
   // A Switch on D7 will set if the unit is in serial adjust mode or not  
-  //s_calibrateFlag = digitalRead(calibrate);  
-  
   if(digitalRead(CALIBRATE_PIN)== HIGH)
   {    
     // We ARE in calibrate mode
@@ -385,7 +336,8 @@ void loop()
   }
   else
   {     
-    enterSleep();    
+    // This function blocks in sleep until the next RTC interrupt
+    SLEEP_SetWakeOnRTCAndSleep();
   }  
 }
 

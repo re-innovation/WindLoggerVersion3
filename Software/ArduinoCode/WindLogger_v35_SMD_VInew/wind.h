@@ -18,5 +18,6 @@ String& WIND_GetPulseCountStr(uint8_t counter);
 long WIND_GetLivePulseCount(uint8_t counter);
 
 void WIND_StoreWindPulseCounts();
+void WIND_Debug();
 
 #endif

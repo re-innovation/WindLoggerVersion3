@@ -4,7 +4,7 @@
 // Defines
 
 // Public Functions
-void RTC_Setup();
+void RTC_Setup(int scl, int sda, int interrupt_pin);
 void RTC_EnableInterrupt();
 void RTC_DisableInterrupt();
 

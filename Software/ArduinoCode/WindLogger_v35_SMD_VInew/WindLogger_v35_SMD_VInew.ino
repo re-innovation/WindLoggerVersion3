@@ -170,11 +170,11 @@
 
 // Lets use a dallas 1-wire sensotr, to save an analog value.
 
-//********Variables for the Filename*******************
-
-// Varibles for 'I'm alive' flash
+#define FLASH_PERIOD (10)
 static int s_aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
 static bool s_debugFlag = LOW;    // Set this if you want to be in debugging mode.
+static bool s_error = false;
+static bool s_calibrate_mode = false;
 
 //**********STRINGS TO USE****************************
 
@@ -184,6 +184,103 @@ const char headersOK[] PROGMEM = "Headers OK";
 const char erroropen[] PROGMEM = "Error open";
 const char error[] PROGMEM = "ERROR";
 const char dateerror[] PROGMEM = "Date ERR";
+
+/***************************************************
+ *  Name:        ledOn, ledOff
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None
+ *
+ *  Description: Turns status LED on or off            
+ *
+ ***************************************************/
+static void ledOn()
+{
+  pinMode(RED_LED_PIN,OUTPUT);
+  digitalWrite(RED_LED_PIN, HIGH);
+}
+
+static void ledOff()
+{
+  digitalWrite(RED_LED_PIN, LOW);
+  // Set LED to be an INPUT - saves power 
+  pinMode(RED_LED_PIN,INPUT);
+}
+
+/***************************************************
+ *  Name:        flashLED
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None
+ *
+ *  Description: Per-second LED flash            
+ *
+ ***************************************************/
+static void flashLED()
+{
+  pinMode(RED_LED_PIN,OUTPUT);
+    
+  if (s_error)
+  {
+    for(int x=0;x<=5;x++)
+    {
+      digitalWrite(RED_LED_PIN, HIGH);
+      delay(5);
+      digitalWrite(RED_LED_PIN, LOW);
+      delay(50);     
+    }
+  }
+  else
+  {
+    // Flash the LED every FLASH_PERIOD seconds to show alive
+    if(s_aliveFlashCounter >= FLASH_PERIOD)
+    {
+      digitalWrite(RED_LED_PIN, HIGH);
+      delay(5);
+      digitalWrite(RED_LED_PIN, LOW); 
+      s_aliveFlashCounter=0;
+    }
+  }
+
+  pinMode(RED_LED_PIN,INPUT);
+}
+
+/***************************************************
+ *  Name:        handleCalibration
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None
+ *
+ *  Description: Per-second LED flash            
+ *
+ ***************************************************/
+static void handleCalibration()
+{
+  Serial.println("Calibrate");    
+  SERIAL_HandleCalibrationData();
+  delay(500);  // Some time to read data
+  Serial.flush();    // Force out the end of the serial data 
+  SD_ForcePendingWrite();
+}
+
+/***************************************************
+ *  Name:        readInputs
+ *
+ *  Returns:     Nothing.
+ *
+ *  Parameters:  None.
+ *
+ *  Description: Read the SD card present and calibrate inputs.           
+ *
+ ***************************************************/
+void readInputs()
+{
+  s_error = !SD_CardIsPresent();
+  s_calibrate_mode = (digitalRead(CALIBRATE_PIN)== HIGH);
+}
 
 /***************************************************
  *  Name:        setup
@@ -199,22 +296,7 @@ void setup()
 {
   Serial.begin(115200);
   Wire.begin();
-  
-  //******Real Time Clock Set - up********
-  // A4 and A5 are used as I2C interface.
-  // D2 is connected to CLK OUT from RTC. This triggers an interrupt to take data
-  // We need to enable pull up resistors
-  pinMode(A4, INPUT);           // set pin to input
-  digitalWrite(A4, HIGH);       // turn on pullup resistors
-  pinMode(A5, INPUT);           // set pin to input
-  digitalWrite(A5, HIGH);       // turn on pullup resistors
-  pinMode(2,INPUT);    // Set D2 to be an input for the RTC CLK-OUT   
 
-  //initialise the real time clock
-
-  //initialisetemp();  // Initialise the temperature sensors
-  pinMode(RED_LED_PIN,OUTPUT);    // Set D4 to be an output LED
-  
   SD_Setup();
   
   //Set up digital data lines
@@ -227,9 +309,8 @@ void setup()
   pinMode(VOLTAGE_PIN,INPUT);
   pinMode(CURRENT_1_PIN,INPUT); 
 
-  // Put unused pins to INPUT to try and save power...      
-  
-  RTC_Setup();  // Initialise the real time clock  
+  // Initialise the real time clock (A4 = scl, A5 = sda, 2 = 1Hz clock input)
+  RTC_Setup(A4, A5, 2);  
   
   SD_CreateFileForToday();  // Create the corrct filename (from date)
 
@@ -272,67 +353,29 @@ void setup()
 void loop()
 {
 
-  String newdate;     // The new date, read every time 
+  readInputs();
 
   // *********** WIND DIRECTION **************************************  
   // Want to measure the wind direction every second to give good direction analysis
   // This can be checked every second and an average used
   WIND_ConvertWindDirection(analogRead(VANE_PIN));    // Run this every second. It increments the windDirectionArray 
- 
-  if(s_aliveFlashCounter>=10)
-  {
-    // Flash the LED every 10 seconds to show alive
-    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
-    digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
-    delay(5);
-    digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
-    s_aliveFlashCounter=0;  // Reset the counter 
-  }
   
+  flashLED();
+
   if(SD_WriteIsPending())
   {  
-    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
-    digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
+    ledOn();
     SD_WriteData();
     // Finish up write routine here:    
-    digitalWrite(RED_LED_PIN, LOW);   // set the LED OFF 
-    pinMode(RED_LED_PIN,INPUT);    // Set LED to be an INPUT - saves power   
+    ledOff();
     Serial.flush();    // Force out the end of the serial data
   }
+   
+  WIND_Debug();
   
-  // Want to check the SD card every second
-  if(!SD_CardIsPresent())
-  {
-    pinMode(RED_LED_PIN,OUTPUT);    // Set LED to be an output LED 
-    // This meands there is no card present so flash the LED every second
-    for(int x=0;x<=5;x++)
-    {
-      digitalWrite(RED_LED_PIN, HIGH);   // set the LED ON
-      delay(5);
-      digitalWrite(RED_LED_PIN, LOW);   // set the LED ON
-      delay(50);     
-    }
-  }
-  
-  if(s_debugFlag==HIGH)
-  {
-    // DEBUGGING ONLY........
-    Serial.print("Anemometer1: ");
-    Serial.println(WIND_GetLivePulseCount(0), DEC);
-    Serial.print("Anemometer2: ");
-    Serial.println(WIND_GetLivePulseCount(1), DEC);
-  }
-  
-  // A Switch on D7 will set if the unit is in serial adjust mode or not  
-  if(digitalRead(CALIBRATE_PIN)== HIGH)
+  if(s_calibrate_mode)
   {    
-    // We ARE in calibrate mode
-    Serial.println("Calibrate");    
-    SERIAL_HandleCalibrationData();
-    delay(500);  // Some time to read data
-    Serial.flush();    // Force out the end of the serial data 
-
-    SD_ForcePendingWrite();
+    handleCalibration();
   }
   else
   {     
@@ -340,44 +383,6 @@ void loop()
     SLEEP_SetWakeOnRTCAndSleep();
   }  
 }
-
-// *********FUNCTION TO SORT OUT THE FILENAME**************
-
-//// Temperature function outputs float , the actual
-//// temperature
-//// Temperature function inputs
-//// 1.AnalogInputNumber - analog input to read from
-//// 2.OuputUnit - output in celsius, kelvin or fahrenheit
-//// 3.Thermistor B parameter - found in datasheet
-//// 4.Manufacturer T0 parameter - found in datasheet (kelvin)
-//// 5. Manufacturer R0 parameter - found in datasheet (ohms)
-//// 6. Your balance resistor resistance in ohms  
-//
-//float Temperature(int AnalogInputNumber,int OutputUnit,float B,float T0,float R0,float R_Balance)
-//{
-//  float R,T,data;
-//
-//  //R=1024.0f*R_Balance/float(analogRead(AnalogInputNumber))-R_Balance;
-//  
-//  // Changes as using thermistor to ground:
-//  data = float(analogRead(AnalogInputNumber));
-//  R=(data*R_Balance)/(1024.0f-data);
-//  
-//  T=1.0f/(1.0f/T0+(1.0f/B)*log(R/R0));
-//
-//  switch(OutputUnit) {
-//    case T_CELSIUS :
-//      T-=273.15f;
-//    break;
-//    case T_FAHRENHEIT :
-//      T=9.0f*(T-273.15f)/5.0f+32.0f;
-//    break;
-//    default:
-//    break;
-//  };
-//
-//  return T;
-//}
 
 /* 
  * APP_SecondTick

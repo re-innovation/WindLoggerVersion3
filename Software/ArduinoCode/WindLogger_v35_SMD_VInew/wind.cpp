@@ -13,6 +13,7 @@
 #include <EnableInterrupt.h>
 
 #include "wind.h"
+#include "app.h"
 
 /* 
  * Private Variables
@@ -266,4 +267,19 @@ void WIND_StoreWindPulseCounts()
     // Reset the pulse counters
     s_pulseCounters[0] = 0;
     s_pulseCounters[1] = 0;
+}
+
+/* 
+ * WIND_Debug
+ * Output debugging strings if in debug mode
+ */
+void WIND_Debug()
+{
+	if (APP_InDebugMode())
+	{
+		Serial.print("Anemometer1: ");
+	    Serial.println(WIND_GetLivePulseCount(0), DEC);
+	    Serial.print("Anemometer2: ");
+	    Serial.println(WIND_GetLivePulseCount(1), DEC);
+	}
 }

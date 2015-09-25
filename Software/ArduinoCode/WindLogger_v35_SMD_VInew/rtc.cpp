@@ -33,7 +33,6 @@
  */
 
 #define I2C_RTC 0x51 // 7 bit address (without last bit - look at the datasheet)
-#define RTC_INTERRUPT_PIN 2  // RTC interrupt - This is pin 2 of arduino
 
 /* 
  * Private Variables
@@ -42,6 +41,8 @@
 static Rtc_Pcf8563 s_rtc;
 static String s_dateString;
 static String s_timeString;
+
+static int s_interrupt_pin;
 
 /* 
  * Private Functions
@@ -60,7 +61,7 @@ static String s_timeString;
  ***************************************************/
 static void rtcInterruptHandler()
 { 
-  disableInterrupt(RTC_INTERRUPT_PIN);
+  disableInterrupt(s_interrupt_pin);
 
   SD_SecondTick();
   APP_SecondTick();
@@ -74,8 +75,21 @@ static void rtcInterruptHandler()
  * RTC_Setup
  * Called by application to initalise the RTC
  */
-void RTC_Setup()
+void RTC_Setup(int scl, int sda, int interrupt_pin)
 {
+
+  //******Real Time Clock Set - up********
+  // A4 and A5 are used as I2C interface.
+  // D2 is connected to CLK OUT from RTC. This triggers an interrupt to take data
+  // We need to enable pull up resistors
+  s_interrupt_pin = interrupt_pin;
+
+  pinMode(scl, INPUT);           // set pin to input
+  digitalWrite(scl, HIGH);       // turn on pullup resistors
+  pinMode(sda, INPUT);           // set pin to input
+  digitalWrite(sda, HIGH);       // turn on pullup resistors
+  pinMode(interrupt_pin, INPUT); // Interrupt pin for the RTC CLK-OUT   
+
   // This section configures the RTC to have a 1Hz output.
   // Its a bit strange as first we read the data from the RTC
   // Then we load it back again but including the correct second flag  
@@ -117,12 +131,12 @@ void RTC_Setup()
  */
 void RTC_EnableInterrupt()
 {
-	 enableInterrupt(RTC_INTERRUPT_PIN, rtcInterruptHandler, RISING);
+	 enableInterrupt(s_interrupt_pin, rtcInterruptHandler, RISING);
 }
 
 void RTC_DisableInterrupt()
 {
-	disableInterrupt(RTC_INTERRUPT_PIN);	
+	disableInterrupt(s_interrupt_pin);	
 }
 
 /* 

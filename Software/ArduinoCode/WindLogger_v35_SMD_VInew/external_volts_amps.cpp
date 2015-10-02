@@ -169,20 +169,18 @@ void VA_UpdateExternalCurrent(void)
     dtostrf(s_current1,2,2, s_current1Str);     // Hold the battery voltage as a string
 }
 
-/* 
- * VA_GetExternalVoltageStr
- * Called by application to get the latest voltage string
- */
-char * VA_GetExternalVoltageStr(void)
+int VA_WriteExternalVoltageToBuffer(char * buffer)
 {
-	return  s_externalVoltStr;
+    if (!buffer) { return 0; }
+    int length = strlen(s_externalVoltStr);
+    memcpy(buffer, s_externalVoltStr, length);
+    return length;
 }
 
-/* 
- * VA_GetExternalCurrentStr
- * Called by application to get the latest current string
- */
-char * VA_GetExternalCurrentStr(void)
+int VA_WriteExternalCurrentToBuffer(char * buffer)
 {
-	return s_current1Str;
+    if (!buffer) { return 0; }
+    int length = strlen(s_current1Str);
+    memcpy(buffer, s_current1Str, length);
+    return length;
 }

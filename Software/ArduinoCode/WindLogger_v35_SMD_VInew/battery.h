@@ -7,6 +7,6 @@
 // Public Functions
 void BATT_UpdateBatteryVoltage(void);
 
-char * BATT_GetBatteryVoltageStr(void);
+int BATT_WriteVoltageToBuffer(char * buffer);
 
 #endif

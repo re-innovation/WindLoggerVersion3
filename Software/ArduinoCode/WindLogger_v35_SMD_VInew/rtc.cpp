@@ -39,9 +39,6 @@
  */
 
 static Rtc_Pcf8563 s_rtc;
-static String s_dateString;
-static String s_timeString;
-
 static int s_interrupt_pin;
 
 /* 
@@ -141,22 +138,20 @@ void RTC_DisableInterrupt()
 
 /* 
  * RTC_GetDate
- * Updates the date string (in specified format) and returns a reference to it
+ * Updates the date string (in specified format) and returns a pointer to it
  */
-String& RTC_GetDate(int format)
+char * RTC_GetDate(int format)
 {
-	s_dateString = String(s_rtc.formatDate(format));
-	return s_dateString;
+	return s_rtc.formatDate(format);
 }
 
 /* 
  * RTC_GetTime
- * Updates the time string and returns a reference to it
+ * Updates the time string and returns a pointer to it
  */
-String& RTC_GetTime()
+char * RTC_GetTime()
 {
-	s_timeString = String(s_rtc.formatTime());
-	return s_timeString;
+	return s_rtc.formatTime();
 }
 
 /*

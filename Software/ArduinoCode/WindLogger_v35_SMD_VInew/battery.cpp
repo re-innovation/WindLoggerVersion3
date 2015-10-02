@@ -34,11 +34,10 @@ void BATT_UpdateBatteryVoltage(void)
     dtostrf(batteryVoltage, 2, 2, s_batteryVoltStr);     // Hold the battery voltage as a string
 }
 
-/* 
- * BATT_GetBatteryVoltageStr
- * Called by application to get the current battery voltage string
- */
-char * BATT_GetBatteryVoltageStr(void)
+int BATT_WriteVoltageToBuffer(char * buffer)
 {
-	return s_batteryVoltStr;
+	if (!buffer) { return 0; }
+	int length = strlen(s_batteryVoltStr);
+	memcpy(buffer, s_batteryVoltStr, length);
+	return length;
 }

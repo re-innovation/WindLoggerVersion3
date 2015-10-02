@@ -36,7 +36,7 @@ static long s_dataCounter = 0;  // This holds the number of seconds since the la
 static long s_sampleTime = 2;  // This is the time between samples for the DAQ
 
 static volatile bool s_writePending = false;  // A flag to tell the code when to write data
-static String s_date;        // The stored date from filename creation
+static char s_last_used_date[16];
 
 // The other SD card pins (D11,D12,D13) are all set within s_SD.h
 static int s_lastCardDetect = LOW;  // This is the flag for the old reading of the card detect
@@ -45,7 +45,7 @@ static int s_lastCardDetect = LOW;  // This is the flag for the old reading of t
 static SdFat s_sd;
 static SdFile s_datafile;  
 
-static String s_dataString;    // This is the holder for the data as a string. Start as blank
+static char s_dataString[128];
 
 static char s_filename[] = "DXXXXXX.csv";  // This is a holder for the full file name
 static char s_deviceID[3]; // A buffer to hold the device ID
@@ -97,15 +97,14 @@ static void writeDataString()
 void SD_Setup()
 {
     pinMode(SD_CARD_DETECT_PIN,INPUT);  // D9 is the SD card detect on pin 9.
-  // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
-  // We use SPI_HALF_SPEED here as I am using resistor level shifters.
-  //if (!s_sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) s_sd.initErrorHalt();
 
   // make sure that the default chip select pin is set to
   // output, even if you don't use it:
     pinMode(SD_CHIP_SELECT_PIN, OUTPUT);
 
-  // see if the card is present and can be initialized:
+  // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
+  // We use SPI_HALF_SPEED here as I am using resistor level shifters.
+
     if (!s_sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
 //    if(APP_InDebugMode())
 //    {
@@ -223,8 +222,8 @@ void SD_CreateFileForToday()
 
  void SD_WriteData()
  {
-
-  String newdate;
+    char * current_date;
+    char * current_time;
 
     // *********** WIND SPEED ******************************************
     // Want to get the number of pulses and average into the sample time
@@ -271,37 +270,37 @@ void SD_CreateFileForToday()
     // ****** Check filename *********************************************
     // Each day we want to write a new file.
     // Compare date with previous stored date, every second
-  newdate = RTC_GetDate(RTCC_DATE_WORLD);
-  if(newdate != s_date)
+  current_date = RTC_GetDate(RTCC_DATE_WORLD);
+  current_time = RTC_GetTime();
+
+  if(strcmp(current_date, s_last_used_date) != 0)
   {
        // If date has changed then create a new file
-       s_date = newdate;
+       memcpy(s_last_used_date, current_date, 10);
        SD_CreateFileForToday();  // Create the corrct filename (from date)
     }    
 
-    // ********* Create string of data **************************
-    s_dataString =  String(s_deviceID[0]); 
-    s_dataString += s_deviceID[1];  // Reference
-    s_dataString += comma;
-    s_dataString += newdate;  // Date
-    s_dataString += comma;
-    s_dataString += RTC_GetTime(); // Time
-    s_dataString += comma;
-    s_dataString += WIND_GetPulseCountStr(0);
-    s_dataString += comma;
-    s_dataString += WIND_GetPulseCountStr(1);
-    s_dataString += comma;
-    s_dataString += WIND_GetWindDirectionStr(); // Wind direction
-//    s_dataString += comma;
-//    s_dataString += TempCStr; // Temperature
-    s_dataString += comma;
-    s_dataString += BATT_GetBatteryVoltageStr();  // Battery voltage  
-    s_dataString += comma;
-    s_dataString += VA_GetExternalVoltageStr();  // Current 1 reading
-    s_dataString += comma;
-    s_dataString += VA_GetExternalCurrentStr();  // Current 2 reading
+    int index = 0;
+    s_dataString[index++] = s_deviceID[0];
+    s_dataString[index++] = s_deviceID[1];
+    s_dataString[index++] = comma;
+    memcpy(s_dataString, current_date, 10); index += 10; // Date is exactly 10 chars long
+    s_dataString[index++] = comma;
+    memcpy(s_dataString, current_time, 9); index += 9; // Time is exactly 10 chars long
+    s_dataString[index++] = comma;
+    index += WIND_WritePulseCountToBuffer(0, s_dataString);
+    s_dataString[index++] = comma;
+    index += WIND_WritePulseCountToBuffer(0, s_dataString);
+    s_dataString[index++] = comma;
+    index += WIND_WriteDirectionToBuffer(s_dataString);
+    s_dataString[index++] = comma;
+    index += BATT_WriteVoltageToBuffer(s_dataString);
+    s_dataString[index++] = comma;
+    index += VA_WriteExternalVoltageToBuffer(s_dataString);
+    s_dataString[index++] = comma;
+    index += VA_WriteExternalCurrentToBuffer(s_dataString);
+    s_dataString[index++] = '\0';
 
-    
     // ************** Write it to the SD card *************
     // This depends upon the card detect.
     // If card is there then write to the file

@@ -8,8 +8,8 @@ void RTC_Setup(int scl, int sda, int interrupt_pin);
 void RTC_EnableInterrupt();
 void RTC_DisableInterrupt();
 
-String& RTC_GetDate(int format = 0);
-String& RTC_GetTime();
+char * RTC_GetDate(int format = 0);
+char * RTC_GetTime();
 void RTC_GetYYMMDDString(char * buffer);
 
 void RTC_SetTime(uint8_t hour, uint8_t minute, uint8_t second);

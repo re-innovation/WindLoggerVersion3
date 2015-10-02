@@ -19,11 +19,11 @@
  * Private Variables
  */
 /********** Wind Direction Storage *************/
-static String s_windDirection = " ";  // Empty to start with
-static int s_windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds the frequency of the wind direction
+static char s_windDirection[3]; // Hold "N", "NE", "E" etc. strings
+static int s_windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds count of each cardinal wind direction
 
 // Variables for the Pulse Counter
-static volatile long s_pulseCounters[2] = {0, 0};  // This counts pulses from the flow sensor  - Needs to be long to hold number
+static volatile long s_livePulseCounters[2] = {0, 0};  // This counts pulses from the flow sensor  - Needs to be long to hold number
 static volatile long s_pulseCountersOld[2] = {0, 0};  // This is storage for the old flow sensor - Needs to be long to hold number
 
 /* 
@@ -44,7 +44,7 @@ static void pulse1(void)
 {
   // If the anemometer has spun around
   // Increment the pulse counter
-  s_pulseCounters[0]++;
+  s_livePulseCounters[0]++;
   // ***TO DO**** Might need to debounce this
 }
 
@@ -62,7 +62,7 @@ static void pulse2(void)
 {
   // If the anemometer has spun around
   // Increment the pulse counter
-  s_pulseCounters[1]++;
+  s_livePulseCounters[1]++;
   // ***TO DO**** Might need to debounce this
 }
 
@@ -146,12 +146,12 @@ void WIND_ConvertWindDirection(int reading)
 
 void WIND_AnalyseWindDirection()
 {
- // When a data sample period is over we need to see the most frequent wind direction.
- // This needs to be converted back to a direction and stored on SD
+	// When a data sample period is over we need to see the most frequent wind direction.
+	// This needs to be converted back to a direction and stored on SD
 
 	int data1 = s_windDirectionArray[0];
 	int maxIndex = 0;
- // First need to find the maximum integer in the array
+	// First need to find the maximum integer in the array
 	for(int i=1;i<8;i++)
 	{
 		if(data1<s_windDirectionArray[i])
@@ -160,35 +160,39 @@ void WIND_AnalyseWindDirection()
 			maxIndex = i;
 		}
 	}
- // Serial.println(maxIndex);  Testing
-
-
- // Then convert that into the direction
-	switch(maxIndex)
+ 	// Serial.println(maxIndex);  Testing
+	
+	// Clear the wind direction string and fill based on maxIndex	
+	s_windDirection[0] = s_windDirection[1] = s_windDirection[2] = '\0';  
+ 	switch(maxIndex)
 	{
 		case 0:
-			s_windDirection = "N";
+			s_windDirection[0] = 'N';
 			break;
 		case 1:
-			s_windDirection = "NE";
+			s_windDirection[0] = 'N';
+			s_windDirection[1] = 'E';
 			break;    
 		case 2:
-			s_windDirection = "E";
+			s_windDirection[0] = 'E';
 			break;  
 		case 3:
-			s_windDirection = "SE";
+			s_windDirection[0] = 'S';
+			s_windDirection[1] = 'E';
 			break;
 		case 4:
-			s_windDirection = "S";
+			s_windDirection[0] = 'S';
 			break;  
 		case 5:
-			s_windDirection = "SW";
+			s_windDirection[0] = 'S';
+			s_windDirection[1] = 'W';
 			break;
 		case 6:
-			s_windDirection = "W";
+			s_windDirection[0] = 'W';
 			break;
 		case 7:
-			s_windDirection = "NW";
+			s_windDirection[0] = 'N';
+			s_windDirection[1] = 'W';
 			break;
 	}
 
@@ -199,37 +203,38 @@ void WIND_AnalyseWindDirection()
 	}
 }
 
-/* 
- * WIND_GetWindDirectionStr
- * Called by application to get the latest wind direction string
- */
-String& WIND_GetWindDirectionStr()
+int WIND_WritePulseCountToBuffer(uint8_t counter, char * buffer)
 {
-	return s_windDirection;
-}
-
-/* 
- * WIND_GetPulseCountStr
- * Called by application to get the latest pulse count string
- */
-String& WIND_GetPulseCountStr(uint8_t counter)
-{
-	static String pulseCountString;
-
-	switch(counter)
+	char temp[16];
+	int length;
+	if (counter < 2)
 	{
-		case 0:
-			pulseCountString = String(s_pulseCountersOld[0]);
-			break;
-		case 1:
-			pulseCountString = String(s_pulseCountersOld[1]);
-			break;
-		default:
-			pulseCountString = String("??");
-			break;
+		(void)ltoa(s_pulseCountersOld[counter], temp, 10);
+		length = strlen(temp);
+		memcpy(buffer, temp, length);
+	}
+	else
+	{
+		buffer[0] = '?';
+		buffer[1] = '?';
 	}
 
-	return pulseCountString;
+	return length;
+}
+
+int WIND_WriteDirectionToBuffer(char * buffer)
+{
+	int count = 1;
+	buffer[0] = s_windDirection[0];
+
+	if(s_windDirection[1] != '\0')
+	{
+		buffer[1] = s_windDirection[1];
+		buffer[2] = s_windDirection[2];
+		count = 2;
+	}
+
+	return count;
 }
 
 /* 
@@ -243,10 +248,10 @@ long WIND_GetLivePulseCount(uint8_t counter)
 	switch(counter)
 	{
 		case 0:
-			count = s_pulseCounters[0];
+			count = s_livePulseCounters[0];
 			break;
 		case 1:
-			count = s_pulseCounters[1];
+			count = s_livePulseCounters[1];
 			break;
 		default:
 			count = 0;
@@ -262,11 +267,10 @@ long WIND_GetLivePulseCount(uint8_t counter)
  */
 void WIND_StoreWindPulseCounts()
 {
-	s_pulseCountersOld[0] = s_pulseCounters[0];
-    s_pulseCountersOld[1] = s_pulseCounters[1];
-    // Reset the pulse counters
-    s_pulseCounters[0] = 0;
-    s_pulseCounters[1] = 0;
+	s_pulseCountersOld[0] = s_livePulseCounters[0];
+    s_pulseCountersOld[1] = s_livePulseCounters[1];
+    s_livePulseCounters[0] = 0;
+    s_livePulseCounters[1] = 0;
 }
 
 /* 

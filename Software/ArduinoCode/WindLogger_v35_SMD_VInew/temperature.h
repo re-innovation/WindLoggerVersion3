@@ -1,6 +1,6 @@
 #ifndef _TEMPERATURE_H_
 #define _TEMPERATURE_H_
 
-int TEMP_WriteTemperatureToBuffer(char * buffer);
+void TEMP_WriteTemperatureToBuffer(FixedLengthAccumulator * accum);
 
 #endif

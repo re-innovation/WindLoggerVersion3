@@ -13,6 +13,7 @@
  * Application Includes
  */
 
+#include "utility.h"
 #include "app.h"
 
 /* 
@@ -95,28 +96,26 @@ static float thermistor_to_temperature(int AnalogInputNumber, int OutputUnit, fl
  * Public Functions
  */
 
-int TEMP_WriteTemperatureToBuffer(char * buffer)
+void TEMP_WriteTemperatureToBuffer(FixedLengthAccumulator * accum)
 {
-	s_tempC = thermistor_to_temperature(thermistor, T_CELSIUS, 10000.0f, true);
-	dtostrf(s_tempC,2,2,s_tempCstr);  // Convert the temperature value (double) into a string
+  if (!accum) { return; }
+  s_tempC = thermistor_to_temperature(thermistor, T_CELSIUS, 10000.0f, true);
+  dtostrf(s_tempC,2,2,s_tempCstr);  // Convert the temperature value (double) into a string
 
-	strcpy(buffer, s_tempCstr);
+  accum->writeString(s_tempCstr);
 
-	if(APP_InDebugMode())
-	{
-	  Serial.print("Therm: ");
-	  Serial.println(s_tempCstr);  
-	}
-
-	return strlen(s_tempCstr);
+  if(APP_InDebugMode())
+  {
+    Serial.print("Therm: ");
+    Serial.println(s_tempCstr);  
+  }
 }
 
 #else
 
-int TEMP_WriteTemperatureToBuffer(char * buffer)
+void TEMP_WriteTemperatureToBuffer(FixedLengthAccumulator * accum)
 {
-	(void)buffer;
-	return 0;
+	(void)accum;
 }
 
 #endif

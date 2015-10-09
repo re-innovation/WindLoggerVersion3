@@ -9,6 +9,7 @@
 
 #include <Arduino.h>
 
+#include "utility.h"
 #include "battery.h"
 
 /* 
@@ -34,10 +35,9 @@ void BATT_UpdateBatteryVoltage(void)
     dtostrf(batteryVoltage, 2, 2, s_batteryVoltStr);     // Hold the battery voltage as a string
 }
 
-int BATT_WriteVoltageToBuffer(char * buffer)
+
+void BATT_WriteVoltageToBuffer(FixedLengthAccumulator * accum)
 {
-	if (!buffer) { return 0; }
-	int length = strlen(s_batteryVoltStr);
-	memcpy(buffer, s_batteryVoltStr, length);
-	return length;
+	if (!accum) { return; }
+	accum->writeString(s_batteryVoltStr);
 }

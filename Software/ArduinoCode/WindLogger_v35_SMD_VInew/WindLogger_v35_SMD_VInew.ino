@@ -134,6 +134,8 @@
 #include <EEPROM.h>        // For writing values to the EEPROM
 
 /************ Application Libraries*****************************/
+
+#include "utility.h"
 #include "sleep.h"
 #include "eeprom_storage.h"
 #include "battery.h"
@@ -143,7 +145,6 @@
 #include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
-#include "utility.h"
 #include "app.h"
 
 /********* I/O Pins *************/

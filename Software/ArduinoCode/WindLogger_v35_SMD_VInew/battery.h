@@ -6,7 +6,6 @@
 
 // Public Functions
 void BATT_UpdateBatteryVoltage(void);
-
-int BATT_WriteVoltageToBuffer(char * buffer);
+void BATT_WriteVoltageToBuffer(FixedLengthAccumulator * accum);
 
 #endif

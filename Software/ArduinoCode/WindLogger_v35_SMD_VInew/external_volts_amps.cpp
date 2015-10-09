@@ -10,6 +10,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
+#include "utility.h"
 #include "external_volts_amps.h"
 #include "eeprom_storage.h"
 
@@ -169,18 +170,14 @@ void VA_UpdateExternalCurrent(void)
     dtostrf(s_current1,2,2, s_current1Str);     // Hold the battery voltage as a string
 }
 
-int VA_WriteExternalVoltageToBuffer(char * buffer)
+void VA_WriteExternalVoltageToBuffer(FixedLengthAccumulator * accum)
 {
-    if (!buffer) { return 0; }
-    int length = strlen(s_externalVoltStr);
-    memcpy(buffer, s_externalVoltStr, length);
-    return length;
+    if (!accum) { return; }
+    accum->writeString(s_externalVoltStr);
 }
 
-int VA_WriteExternalCurrentToBuffer(char * buffer)
+void VA_WriteExternalCurrentToBuffer(FixedLengthAccumulator * accum)
 {
-    if (!buffer) { return 0; }
-    int length = strlen(s_current1Str);
-    memcpy(buffer, s_current1Str, length);
-    return length;
+    if (!accum) { return; }
+    accum->writeString(s_current1Str);
 }

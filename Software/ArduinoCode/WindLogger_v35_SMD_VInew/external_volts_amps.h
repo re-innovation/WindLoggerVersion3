@@ -19,7 +19,7 @@ void VA_StoreNewCurrentGain(int value);
 void VA_UpdateExternalVoltage(void);
 void VA_UpdateExternalCurrent(void);
 
-int VA_WriteExternalVoltageToBuffer(char * buffer);
-int VA_WriteExternalCurrentToBuffer(char * buffer);
+void VA_WriteExternalVoltageToBuffer(FixedLengthAccumulator * accum);
+void VA_WriteExternalCurrentToBuffer(FixedLengthAccumulator * accum);
 
 #endif

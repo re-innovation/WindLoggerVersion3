@@ -13,8 +13,8 @@ void WIND_SetupWindPulseInterrupts();
 void WIND_ConvertWindDirection(int reading);
 void WIND_AnalyseWindDirection();
 
-int WIND_WritePulseCountToBuffer(uint8_t counter, char * buffer);
-int WIND_WriteDirectionToBuffer(char * buffer);
+void WIND_WritePulseCountToBuffer(uint8_t counter, FixedLengthAccumulator * accum);
+void WIND_WriteDirectionToBuffer(FixedLengthAccumulator * accum);
 
 long WIND_GetLivePulseCount(uint8_t counter);
 

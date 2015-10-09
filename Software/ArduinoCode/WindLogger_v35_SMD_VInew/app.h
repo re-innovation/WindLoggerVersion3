@@ -6,7 +6,7 @@
  */
 
 // If READ_TEMPERATURE is 1, the temperature will be read and included in serial data
-#define READ_TEMPERATURE 1
+#define READ_TEMPERATURE 0
 
 /*
  * Application functions

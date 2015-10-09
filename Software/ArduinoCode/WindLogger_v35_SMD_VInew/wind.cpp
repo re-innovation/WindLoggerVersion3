@@ -12,6 +12,7 @@
 #define LIBCALL_ENABLEINTERRUPT
 #include <EnableInterrupt.h>
 
+#include "utility.h"
 #include "wind.h"
 #include "app.h"
 
@@ -203,38 +204,26 @@ void WIND_AnalyseWindDirection()
 	}
 }
 
-int WIND_WritePulseCountToBuffer(uint8_t counter, char * buffer)
+void WIND_WritePulseCountToBuffer(uint8_t counter, FixedLengthAccumulator * accum)
 {
+	if (!accum) { return; }
 	char temp[16];
-	int length;
+
 	if (counter < 2)
 	{
 		(void)ltoa(s_pulseCountersOld[counter], temp, 10);
-		length = strlen(temp);
-		memcpy(buffer, temp, length);
+		accum->writeString(temp);
 	}
 	else
 	{
-		buffer[0] = '?';
-		buffer[1] = '?';
+		accum->writeString("??");
 	}
-
-	return length;
 }
 
-int WIND_WriteDirectionToBuffer(char * buffer)
+void WIND_WriteDirectionToBuffer(FixedLengthAccumulator * accum)
 {
-	int count = 1;
-	buffer[0] = s_windDirection[0];
-
-	if(s_windDirection[1] != '\0')
-	{
-		buffer[1] = s_windDirection[1];
-		buffer[2] = s_windDirection[2];
-		count = 2;
-	}
-
-	return count;
+	if (!accum) { return; }
+	accum->writeString(s_windDirection);
 }
 
 /* 

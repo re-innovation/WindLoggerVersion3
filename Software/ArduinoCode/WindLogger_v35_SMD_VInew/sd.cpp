@@ -13,13 +13,13 @@
 #include <SdFat.h>
 
 /************ Application Libraries*****************************/
+#include "utility.h"
 #include "battery.h"
 #include "external_volts_amps.h"
 #include "wind.h"
 #include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
-#include "utility.h"
 #include "app.h"
 
 /*
@@ -28,6 +28,8 @@
 
 #define SD_CHIP_SELECT_PIN 10 // The SD card Chip Select pin 10
 #define SD_CARD_DETECT_PIN 9  // The SD card detect is on pin 6
+
+#define DATA_STRING_LENGTH 128
 
 /*
  * Private Variables
@@ -46,7 +48,8 @@ static int s_lastCardDetect = LOW;  // This is the flag for the old reading of t
 static SdFat s_sd;
 static SdFile s_datafile;  
 
-static char s_dataString[128];
+static char s_dataString[DATA_STRING_LENGTH];
+static FixedLengthAccumulator s_accumulator = FixedLengthAccumulator(NULL, 0);
 
 static char s_filename[] = "DXXXXXX.csv";  // This is a holder for the full file name
 static char s_deviceID[3]; // A buffer to hold the device ID
@@ -96,7 +99,9 @@ static void writeDataString()
 }
 
 /*
- * Public Functions
+
+#define DATA_STRING_LENGTH 128 
+* Public Functions
  */
 
 /*
@@ -114,22 +119,24 @@ void SD_Setup()
   // Initialize the SD card at SPI_HALF_SPEED to avoid bus errors 
   // We use SPI_HALF_SPEED here as I am using resistor level shifters.
 
-    if (!s_sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
-      if(APP_InDebugMode())
-      {
-        Serial.println(PStringToRAM(s_pstr_not_initialised));
-      }
-    // don't do anything more:
-    // Want to turn on an ERROR LED here
-    	return;
-    }
-    else
+  s_accumulator.attach(s_dataString, DATA_STRING_LENGTH);
+
+  if (!s_sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
+    if(APP_InDebugMode())
     {
-    	if(APP_InDebugMode())
-    	{
-    		Serial.println(PStringToRAM(s_pstr_initialised));
-    	}
+      Serial.println(PStringToRAM(s_pstr_not_initialised));
     }
+  // don't do anything more:
+  // Want to turn on an ERROR LED here
+  	return;
+  }
+  else
+  {
+  	if(APP_InDebugMode())
+  	{
+  		Serial.println(PStringToRAM(s_pstr_initialised));
+  	}
+  }
 }
 
 /*
@@ -180,11 +187,11 @@ void SD_CreateFileForToday()
         Serial.println(PStringToRAM(s_pstrerroropen));
       }
 		}
-    // if the file opened okay, write to it:
-		s_datafile.println(PStringToRAM(s_pstr_headers));
-    // close the file:
+    // if the file opened okay, write to it and sync:
+    s_datafile.println(PStringToRAM(s_pstr_headers));
 		s_datafile.sync();
 	} 
+
 	else
 	{
     if(APP_InDebugMode())
@@ -277,7 +284,32 @@ void SD_CreateFileForToday()
      SD_CreateFileForToday();  // Create the corrct filename (from date)
   }    
 
-  int index = 0;
+  s_accumulator.reset();
+  s_accumulator.writeChar(s_deviceID[0]);
+  s_accumulator.writeChar(s_deviceID[1]);
+  s_accumulator.writeChar(comma);
+  s_accumulator.writeString(current_date);
+  s_accumulator.writeChar(comma);
+  s_accumulator.writeString(current_time);
+  s_accumulator.writeChar(comma);
+  WIND_WritePulseCountToBuffer(0, &s_accumulator);
+  s_accumulator.writeChar(comma);
+  WIND_WritePulseCountToBuffer(1, &s_accumulator);
+  s_accumulator.writeChar(comma);
+  WIND_WriteDirectionToBuffer(&s_accumulator);
+  s_accumulator.writeChar(comma);
+  #if READ_TEMPERATURE == 1
+  TEMP_WriteTemperatureToBuffer(&s_accumulator);
+  s_accumulator.writeChar(comma);
+  #endif
+  BATT_WriteVoltageToBuffer(&s_accumulator);
+  s_accumulator.writeChar(comma);
+  VA_WriteExternalVoltageToBuffer(&s_accumulator);
+  s_accumulator.writeChar(comma);
+  VA_WriteExternalCurrentToBuffer(&s_accumulator);
+
+  /*
+  int index;
   s_dataString[index++] = s_deviceID[0];
   s_dataString[index++] = s_deviceID[1];
   s_dataString[index++] = comma;
@@ -301,6 +333,7 @@ void SD_CreateFileForToday()
   s_dataString[index++] = comma;
   index += VA_WriteExternalCurrentToBuffer(&s_dataString[index]);
   s_dataString[index++] = '\0';
+  */
 
   // ************** Write it to the SD card *************
   // This depends upon the card detect.

@@ -140,6 +140,7 @@
 #include "external_volts_amps.h"
 #include "serial_handler.h"
 #include "wind.h"
+#include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
 #include "utility.h"
@@ -148,27 +149,6 @@
 /********* I/O Pins *************/
 #define RED_LED_PIN 4      // The output led is on pin 4
 #define CALIBRATE_PIN 6   // This controls if we are in serial calibrate mode or not
-
-///********** Thermistor Data Storage ************/
-//#define thermistor A0  // This is the analog pin for the thermistor
-//float TempC = 0;  // This holds the converted value of temperature
-//char TempCStr[6];  // A string buffer to hold the converted string
-//// enumarating 3 major temperature scales
-//enum {
-//  T_KELVIN=0,
-//  T_CELSIUS,
-//  T_FAHRENHEIT
-//};
-//// Manufacturer data for episco k164 10k thermistor
-//// simply delete this if you don't need it
-//// or use this idea to define your own thermistors
-////#define EPISCO_K164_10k 4300.0f,298.15f,10000.0f  // B,T0,R0
-//#define GT_Thermistor_10k 4126.0f,298.15f,10000.0f  // B,T0,R0
-////#define Vishay_Thermistor_47k 4090.0f,298.15f,47000.0f  // B,T0,R0
-/////********* Thermistor Temperature sensor****************/
-//float temp;        // Temporary store for float
-
-// Lets use a dallas 1-wire sensotr, to save an analog value.
 
 #define FLASH_PERIOD (10)
 static int s_aliveFlashCounter = 0;  // This is used to count to give flash every 10 seconds
@@ -180,8 +160,6 @@ static bool s_calibrate_mode = false;
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
-const char headersOK[] PROGMEM = "Headers OK";
-const char erroropen[] PROGMEM = "Error open";
 const char error[] PROGMEM = "ERROR";
 const char dateerror[] PROGMEM = "Date ERR";
 

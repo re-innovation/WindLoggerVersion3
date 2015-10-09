@@ -16,6 +16,7 @@
 #include "battery.h"
 #include "external_volts_amps.h"
 #include "wind.h"
+#include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
 #include "utility.h"
@@ -54,9 +55,17 @@ static char comma = ',';
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
-const char headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Batt V, Ext V, Current";
-const char initialisesd[] PROGMEM = "Init SD";
-const char noSD[] PROGMEM = "No SD card";
+#if READ_TEMPERATURE == 1
+const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Temp C, Batt V, Ext V, Current";
+#else
+const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Batt V, Ext V, Current";
+#endif
+
+const char s_pstr_initialised[] PROGMEM = "Init SD OK";
+const char s_pstr_not_initialised[] PROGMEM = "Init SD Failed";
+const char s_pstr_noSD[] PROGMEM = "No SD card";
+const char s_pstrerroropen[] PROGMEM = "Error open";
+const char s_pstr_file_already_exists[] PROGMEM = "File already exists";
 
 /*
  * Private Functions
@@ -79,10 +88,10 @@ static void writeDataString()
     }  
     // if the file isn't open, pop up an error:
     else {
-//    if(APP_InDebugMode())
-//    {
-//      Serial.println(PStringToRAM(erroropen));
-//    }
+      if(APP_InDebugMode())
+      {
+        Serial.println(PStringToRAM(s_pstrerroropen));
+      }
   }
 }
 
@@ -106,10 +115,10 @@ void SD_Setup()
   // We use SPI_HALF_SPEED here as I am using resistor level shifters.
 
     if (!s_sd.begin(SD_CHIP_SELECT_PIN, SPI_HALF_SPEED)) {
-//    if(APP_InDebugMode())
-//    {
-//      Serial.println("FAIL");
-//    }
+      if(APP_InDebugMode())
+      {
+        Serial.println(PStringToRAM(s_pstr_not_initialised));
+      }
     // don't do anything more:
     // Want to turn on an ERROR LED here
     	return;
@@ -118,7 +127,7 @@ void SD_Setup()
     {
     	if(APP_InDebugMode())
     	{
-    		Serial.println(PStringToRAM(initialisesd));
+    		Serial.println(PStringToRAM(s_pstr_initialised));
     	}
     }
 }
@@ -166,26 +175,22 @@ void SD_CreateFileForToday()
     // open the file for write at end like the Native SD library
 		if (!s_datafile.open(s_filename, O_RDWR | O_CREAT | O_AT_END)) 
 		{
-//      if(APP_InDebugMode())
-//      {
-//        Serial.println(PStringToRAM(erroropen));
-//      }
+      if(APP_InDebugMode())
+      {
+        Serial.println(PStringToRAM(s_pstrerroropen));
+      }
 		}
     // if the file opened okay, write to it:
-		s_datafile.println(PStringToRAM(headers));
+		s_datafile.println(PStringToRAM(s_pstr_headers));
     // close the file:
 		s_datafile.sync();
-//    if(APP_InDebugMode())
-//    {
-//      Serial.println(PStringToRAM(headersOK));
-//    }
 	} 
 	else
 	{
-//    if(APP_InDebugMode())
-//    {
-//      Serial.println("Filename exists");
-//    }
+    if(APP_InDebugMode())
+    {
+      Serial.println(PStringToRAM(s_pstr_file_already_exists));
+    }
 	}
 
 }
@@ -222,36 +227,28 @@ void SD_CreateFileForToday()
 
  void SD_WriteData()
  {
-    char * current_date;
-    char * current_time;
+  char * current_date;
+  char * current_time;
 
-    // *********** WIND SPEED ******************************************
-    // Want to get the number of pulses and average into the sample time
-    // This gives us the average wind speed
-    // pulsecounterold holds the value of pulses.
-    // This can be converted into the wind speed using the time and 
-    // the pulse-wind speed characterisitic of the anemometer.
-    // Do this as post processing - pulse count is most important.
+  // *********** WIND SPEED ******************************************
+  // Want to get the number of pulses and average into the sample time
+  // This gives us the average wind speed
+  // pulsecounterold holds the value of pulses.
+  // This can be converted into the wind speed using the time and 
+  // the pulse-wind speed characterisitic of the anemometer.
+  // Do this as post processing - pulse count is most important.
 
-    // *********** WIND DIRECTION **************************************
-    // This can be checked every second and an average used
-      // If this interrupt has happened then we want to write data to SD card:
-    // Save the pulsecounter value (this will be stored to write to SD card)
-    WIND_StoreWindPulseCounts();
-    WIND_AnalyseWindDirection();
+  // *********** WIND DIRECTION **************************************
+  // This can be checked every second and an average used
+    // If this interrupt has happened then we want to write data to SD card:
+  // Save the pulsecounter value (this will be stored to write to SD card)
+  WIND_StoreWindPulseCounts();
+  WIND_AnalyseWindDirection();
 
-//    // *********** TEMPERATURE *****************************************
-//    // Two versions of this - either with thermistor or I2C sensor (if connected)
-//    // Thermistor version
-//    // Get the temperature readings and store to variables
-//    TempC = Temperature(thermistor,T_CELSIUS,GT_Thermistor_10k,1000.0f);
-//    dtostrf(TempC,2,2,TempCStr);  // Convert the temperature value (double) into a string
-//    
-////    if(APP_InDebugMode())
-////    {
-////      Serial.print("Therm: ");
-////      Serial.println(TempCStr);  
-////    }   
+  // *********** TEMPERATURE *****************************************
+  // Two versions of this - either with thermistor or I2C sensor (if connected)
+  // Thermistor version
+  // Get the temperature readings and store to variables   
 
   BATT_UpdateBatteryVoltage();
 
@@ -294,6 +291,10 @@ void SD_CreateFileForToday()
   s_dataString[index++] = comma;
   index += WIND_WriteDirectionToBuffer(&s_dataString[index]);
   s_dataString[index++] = comma;
+  #if READ_TEMPERATURE == 1
+  index += TEMP_WriteTemperatureToBuffer(&s_dataString[index]);
+  s_dataString[index++] = comma;
+  #endif
   index += BATT_WriteVoltageToBuffer(&s_dataString[index]);
   s_dataString[index++] = comma;
   index += VA_WriteExternalVoltageToBuffer(&s_dataString[index]);
@@ -323,7 +324,7 @@ void SD_CreateFileForToday()
   else
   {
      // print to the serial port too:
-    Serial.println(PStringToRAM(noSD));
+    Serial.println(PStringToRAM(s_pstr_noSD));
     Serial.println(s_dataString);
   }   
     

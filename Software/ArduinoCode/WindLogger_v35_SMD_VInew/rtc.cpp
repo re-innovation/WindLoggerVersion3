@@ -161,7 +161,7 @@ char * RTC_GetTime()
  */
 void RTC_GetYYMMDDString(char * buffer)
 {
-  s_rtc.formatDate(); // Just updates the RTC date
+  s_rtc.getDate(); // Update local RTC date
   
   int day_int = s_rtc.getDay();  // Get the actual day from the RTC
   int month_int = s_rtc.getMonth();  // Get the month

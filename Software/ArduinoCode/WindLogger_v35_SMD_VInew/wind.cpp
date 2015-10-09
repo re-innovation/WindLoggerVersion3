@@ -282,8 +282,9 @@ void WIND_Debug()
 	if (APP_InDebugMode())
 	{
 		Serial.print("Anemometer1: ");
-	    Serial.println(WIND_GetLivePulseCount(0), DEC);
+	    Serial.println(WIND_GetLivePulseCount(0));
 	    Serial.print("Anemometer2: ");
-	    Serial.println(WIND_GetLivePulseCount(1), DEC);
+	    Serial.println(WIND_GetLivePulseCount(1));
+	    Serial.flush();
 	}
 }

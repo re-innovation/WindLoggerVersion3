@@ -275,44 +275,44 @@ void SD_CreateFileForToday()
 
   if(strcmp(current_date, s_last_used_date) != 0)
   {
-       // If date has changed then create a new file
-       memcpy(s_last_used_date, current_date, 10);
-       SD_CreateFileForToday();  // Create the corrct filename (from date)
-    }    
+     // If date has changed then create a new file
+     memcpy(s_last_used_date, current_date, 10);
+     SD_CreateFileForToday();  // Create the corrct filename (from date)
+  }    
 
-    int index = 0;
-    s_dataString[index++] = s_deviceID[0];
-    s_dataString[index++] = s_deviceID[1];
-    s_dataString[index++] = comma;
-    memcpy(s_dataString, current_date, 10); index += 10; // Date is exactly 10 chars long
-    s_dataString[index++] = comma;
-    memcpy(s_dataString, current_time, 9); index += 9; // Time is exactly 10 chars long
-    s_dataString[index++] = comma;
-    index += WIND_WritePulseCountToBuffer(0, s_dataString);
-    s_dataString[index++] = comma;
-    index += WIND_WritePulseCountToBuffer(0, s_dataString);
-    s_dataString[index++] = comma;
-    index += WIND_WriteDirectionToBuffer(s_dataString);
-    s_dataString[index++] = comma;
-    index += BATT_WriteVoltageToBuffer(s_dataString);
-    s_dataString[index++] = comma;
-    index += VA_WriteExternalVoltageToBuffer(s_dataString);
-    s_dataString[index++] = comma;
-    index += VA_WriteExternalCurrentToBuffer(s_dataString);
-    s_dataString[index++] = '\0';
+  int index = 0;
+  s_dataString[index++] = s_deviceID[0];
+  s_dataString[index++] = s_deviceID[1];
+  s_dataString[index++] = comma;
+  memcpy(&s_dataString[index], current_date, 10); index += 10; // Date is exactly 10 chars long
+  s_dataString[index++] = comma;
+  memcpy(&s_dataString[index], current_time, 8); index += 8; // Time is exactly 8 chars long
+  s_dataString[index++] = comma;
+  index += WIND_WritePulseCountToBuffer(0, &s_dataString[index]);
+  s_dataString[index++] = comma;
+  index += WIND_WritePulseCountToBuffer(1, &s_dataString[index]);
+  s_dataString[index++] = comma;
+  index += WIND_WriteDirectionToBuffer(&s_dataString[index]);
+  s_dataString[index++] = comma;
+  index += BATT_WriteVoltageToBuffer(&s_dataString[index]);
+  s_dataString[index++] = comma;
+  index += VA_WriteExternalVoltageToBuffer(&s_dataString[index]);
+  s_dataString[index++] = comma;
+  index += VA_WriteExternalCurrentToBuffer(&s_dataString[index]);
+  s_dataString[index++] = '\0';
 
-    // ************** Write it to the SD card *************
-    // This depends upon the card detect.
-    // If card is there then write to the file
-    // If card has recently been inserted then initialise the card/filenames
-    // If card is not there then flash LEDs
+  // ************** Write it to the SD card *************
+  // This depends upon the card detect.
+  // If card is there then write to the file
+  // If card has recently been inserted then initialise the card/filenames
+  // If card is not there then flash LEDs
 
-    if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==HIGH)
-    {
-      delay(100);  // Wait for switch to settle down.
-      // There was no card previously so re-initialise and re-check the filename
-      SD_Setup();
-      SD_CreateFileForToday();
+  if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==HIGH)
+  {
+    delay(100);  // Wait for switch to settle down.
+    // There was no card previously so re-initialise and re-check the filename
+    SD_Setup();
+    SD_CreateFileForToday();
   }
   if(digitalRead(SD_CARD_DETECT_PIN)==LOW&&s_lastCardDetect==LOW)
   {

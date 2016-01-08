@@ -20,6 +20,7 @@
 #include "external_volts_amps.h"
 #include "wind.h"
 #include "temperature.h"
+#include "irradiance.h"
 #include "rtc.h"
 #include "sd.h"
 
@@ -65,6 +66,7 @@ const char s_pstr_headers[] PROGMEM = \
   WINDSPEED_HEADERS \
   WIND_DIRECTION_HEADERS \
   TEMPERATURE_HEADERS \
+  IRRADIANCE_HEADERS \
   EXTERNAL_VOLTS_HEADERS \
   EXTERNAL_AMPS_HEADERS \
   "Batt V";
@@ -314,6 +316,11 @@ void SD_CreateFileForToday()
   #if READ_TEMPERATURE == 1
   s_accumulator.writeChar(comma);
   TEMP_WriteTemperatureToBuffer(&s_accumulator);
+  #endif
+
+  #if READ_IRRADIANCE == 1
+  s_accumulator.writeChar(comma);
+  IRR_WriteIrradianceToBuffer(&s_accumulator);
   #endif
 
   #if READ_EXTERNAL_VOLTS == 1

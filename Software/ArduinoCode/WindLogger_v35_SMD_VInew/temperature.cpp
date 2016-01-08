@@ -26,7 +26,7 @@ enum {
   T_FAHRENHEIT
 };
 
-#define thermistor A0  // This is the analog pin for the thermistor
+#define THERMISTOR_PIN A0  // This is the analog pin for the thermistor
 
 /* Thermistor data for use in thermistor_to_temperature function */
 struct thermistor
@@ -43,9 +43,6 @@ struct thermistor
 static struct thermistor s_thermistor = {4126.0f,298.15f,10000.0f};					// GT 10K
 //static struct thermistor s_thermistor = {4090.0f,298.15f,47000.0f};	// Vishay 10K
 
-static float s_tempC = 0;  // This holds the converted value of temperature
-static char s_tempCstr[6];  // A string buffer to hold the converted string
-
 /*
  * Private Functions
  */
@@ -54,19 +51,16 @@ static char s_tempCstr[6];  // A string buffer to hold the converted string
  * Outputs: 
  * 	the actual temperature (float)
  * Inputs:
- * 	1.AnalogInputNumber - analog input to read from
- * 	2.OuputUnit - output in celsius, kelvin or fahrenheit
+ * 	1. data - ADC reading
+ * 	2. OuputUnit - output in celsius, kelvin or fahrenheit
  * 	3. Your balance resistor resistance in ohms
  *	4. Set true if thermistor is a pullup
  */
 
-static float thermistor_to_temperature(int AnalogInputNumber, int OutputUnit, float R_Balance, bool pullup)
+static float thermistor_to_temperature(float data, int OutputUnit, float R_Balance, bool pullup)
 {
-  float R,T,data;
+  float R,T;
 
-  // Changes as using thermistor to ground:
-  data = float(analogRead(AnalogInputNumber));
-  
   if (pullup)
   {
   	R = (1024.0f*R_Balance/data)-R_Balance;
@@ -99,15 +93,19 @@ static float thermistor_to_temperature(int AnalogInputNumber, int OutputUnit, fl
 void TEMP_WriteTemperatureToBuffer(FixedLengthAccumulator * accum)
 {
   if (!accum) { return; }
-  s_tempC = thermistor_to_temperature(thermistor, T_CELSIUS, 10000.0f, true);
-  dtostrf(s_tempC,2,2,s_tempCstr);  // Convert the temperature value (double) into a string
 
-  accum->writeString(s_tempCstr);
+  float data = float(analogRead(THERMISTOR_PIN));
+  float tempC = thermistor_to_temperature(data, T_CELSIUS, 10000.0f, true);
+  
+  char tempCstr[6];  // A string buffer to hold the converted string
+  dtostrf(tempC, 2, 2, tempCstr);  // Convert the temperature value (double) into a string
+
+  accum->writeString(tempCstr);
 
   if(APP_InDebugMode())
   {
     Serial.print("Therm: ");
-    Serial.println(s_tempCstr);  
+    Serial.println(tempCstr);  
   }
 }
 

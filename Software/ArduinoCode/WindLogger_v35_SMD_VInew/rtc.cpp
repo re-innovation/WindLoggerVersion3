@@ -12,10 +12,10 @@
 #include <EnableInterrupt.h>
 #include <Rtc_Pcf8563.h>
 
+#include "app.h"
 #include "rtc.h"
 #include "utility.h"
 #include "sd.h"
-#include "app.h"
 
 /************ Real Time Clock code*******************
  * A PCF8563 RTC is attached to pins:

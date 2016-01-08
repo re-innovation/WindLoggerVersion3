@@ -12,10 +12,10 @@
 #define LIBCALL_ENABLEINTERRUPT
 #include <EnableInterrupt.h>
 
+#include "app.h"
 #include "eeprom_storage.h"
 #include "utility.h"
 #include "wind.h"
-#include "app.h"
 
 /* 
  * Private Variables

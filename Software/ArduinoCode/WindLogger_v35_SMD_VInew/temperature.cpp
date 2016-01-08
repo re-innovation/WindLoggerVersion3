@@ -13,8 +13,8 @@
  * Application Includes
  */
 
-#include "utility.h"
 #include "app.h"
+#include "utility.h"
 
 /* 
  * Defines and Typedefs

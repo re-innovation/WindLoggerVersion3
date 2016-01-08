@@ -82,6 +82,41 @@ const char s_pstr_file_already_exists[] PROGMEM = "File already exists";
  * Private Functions
  */
 
+static void write_configurable_fields(FixedLengthAccumulator * accum)
+{
+  #if READ_WINDSPEED == 1
+  accum->writeChar(comma);
+  WIND_WritePulseCountToBuffer(0, accum);
+  accum->writeChar(comma);
+  WIND_WritePulseCountToBuffer(1, accum);
+  #endif
+
+  #if READ_WIND_DIRECTION == 1
+  accum->writeChar(comma);
+  WIND_WriteDirectionToBuffer(accum);
+  #endif
+
+  #if READ_TEMPERATURE == 1
+  accum->writeChar(comma);
+  TEMP_WriteTemperatureToBuffer(accum);
+  #endif
+
+  #if READ_IRRADIANCE == 1
+  accum->writeChar(comma);
+  IRR_WriteIrradianceToBuffer(accum);
+  #endif
+
+  #if READ_EXTERNAL_VOLTS == 1
+  accum->writeChar(comma);
+  VA_WriteExternalVoltageToBuffer(accum);
+  #endif
+  
+  #if READ_EXTERNAL_AMPS == 1
+  accum->writeChar(comma);
+  VA_WriteExternalCurrentToBuffer(accum);
+  #endif
+}
+
 /*
  * writeDataString
  * Opens the current file for writing and appends the current data string
@@ -300,68 +335,11 @@ void SD_CreateFileForToday()
   s_accumulator.writeString(current_date);
   s_accumulator.writeChar(comma);
   s_accumulator.writeString(current_time);
-  
-  #if READ_WINDSPEED == 1
-  s_accumulator.writeChar(comma);
-  WIND_WritePulseCountToBuffer(0, &s_accumulator);
-  s_accumulator.writeChar(comma);
-  WIND_WritePulseCountToBuffer(1, &s_accumulator);
-  #endif
 
-  #if READ_WIND_DIRECTION == 1
-  s_accumulator.writeChar(comma);
-  WIND_WriteDirectionToBuffer(&s_accumulator);
-  #endif
-
-  #if READ_TEMPERATURE == 1
-  s_accumulator.writeChar(comma);
-  TEMP_WriteTemperatureToBuffer(&s_accumulator);
-  #endif
-
-  #if READ_IRRADIANCE == 1
-  s_accumulator.writeChar(comma);
-  IRR_WriteIrradianceToBuffer(&s_accumulator);
-  #endif
-
-  #if READ_EXTERNAL_VOLTS == 1
-  s_accumulator.writeChar(comma);
-  VA_WriteExternalVoltageToBuffer(&s_accumulator);
-  #endif
-  
-  #if READ_EXTERNAL_AMPS == 1
-  s_accumulator.writeChar(comma);
-  VA_WriteExternalCurrentToBuffer(&s_accumulator);
-  #endif
+  write_configurable_fields(&s_accumulator);
 
   s_accumulator.writeChar(comma); 
   BATT_WriteVoltageToBuffer(&s_accumulator);
-
-  /*
-  int index;
-  s_dataString[index++] = s_deviceID[0];
-  s_dataString[index++] = s_deviceID[1];
-  s_dataString[index++] = comma;
-  memcpy(&s_dataString[index], current_date, 10); index += 10; // Date is exactly 10 chars long
-  s_dataString[index++] = comma;
-  memcpy(&s_dataString[index], current_time, 8); index += 8; // Time is exactly 8 chars long
-  s_dataString[index++] = comma;
-  index += WIND_WritePulseCountToBuffer(0, &s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += WIND_WritePulseCountToBuffer(1, &s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += WIND_WriteDirectionToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  #if READ_TEMPERATURE == 1
-  index += TEMP_WriteTemperatureToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  #endif
-  index += BATT_WriteVoltageToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += VA_WriteExternalVoltageToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += VA_WriteExternalCurrentToBuffer(&s_dataString[index]);
-  s_dataString[index++] = '\0';
-  */
 
   // ************** Write it to the SD card *************
   // This depends upon the card detect.

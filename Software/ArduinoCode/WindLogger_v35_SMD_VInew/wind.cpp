@@ -35,10 +35,6 @@ static volatile long s_pulseCountersOld[2] = {0, 0};  // This is storage for the
 
 static bool s_windwave_is_at_top_of_divider = false;
 
-const char s_pstr_windwave_position[] PROGMEM = "Vane position: ";
-const char s_pstr_top[] PROGMEM = "top";
-const char s_pstr_bottom[] PROGMEM = "bottom";
-
 /* 
  * Private Functions
  */
@@ -193,8 +189,6 @@ void WIND_SetWindvanePosition(bool windwave_is_at_top_of_divider)
 {
 	s_windwave_is_at_top_of_divider = windwave_is_at_top_of_divider;
 	EEPROM_SetWindwavePosition(s_windwave_is_at_top_of_divider);
-	Serial.print(PStringToRAM(s_pstr_windwave_position));
-	Serial.println(PStringToRAM(windwave_is_at_top_of_divider ? s_pstr_top : s_pstr_bottom ));
 }
 
 // ******** WIND_ConvertWindDirection *********

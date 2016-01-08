@@ -6,6 +6,18 @@
 #define ANEMOMETER1 3  //   This is digital pin the pulse is attached to
 #define ANEMOMETER2 5  //   This is digital pin the pulse is attached to
 
+#if READ_WINDSPEED == 1
+#define WINDSPEED_HEADERS "Wind 1, Wind 2, "
+#else
+#define WINDSPEED_HEADERS ""
+#endif
+
+#if READ_WIND_DIRECTION == 1
+#define WIND_DIRECTION_HEADERS "Direction, "
+#else
+#define WIND_DIRECTION_HEADERS ""
+#endif
+
 // Public Functions
 
 void WIND_SetupWindPulseInterrupts();

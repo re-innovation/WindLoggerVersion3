@@ -30,6 +30,13 @@
 
   In order to build the software, additional arduino libraries are required.
   
+  ###Logger configuration
+
+  In app.h, you can set which fields are recorded.
+  Each field has a READ define (for example READ_TEMPERATURE).
+  To enable recording of this field, set this define to 1.
+  To disable recording of this field, set this define to 0.
+  
 ### Required libraries:
   ####[https://github.com/GreyGnome/EnableInterrupt](EnableInterrupt by Mike Schwager)
 

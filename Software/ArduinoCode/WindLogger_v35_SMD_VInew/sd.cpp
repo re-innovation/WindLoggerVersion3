@@ -13,6 +13,8 @@
 #include <SdFat.h>
 
 /************ Application Libraries*****************************/
+
+#include "app.h"
 #include "utility.h"
 #include "battery.h"
 #include "external_volts_amps.h"
@@ -20,7 +22,6 @@
 #include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
-#include "app.h"
 
 /*
  * Defines
@@ -58,13 +59,18 @@ static char comma = ',';
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
-#if READ_TEMPERATURE == 1
-const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Temp C, Batt V, Ext V, Current";
-#else
-const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Batt V, Ext V, Current";
-#endif
-
-const char s_pstr_initialised[] PROGMEM = "Init SD OK";
+// These MUST be in the same order as the fields are written to the CSV file!
+const char s_pstr_headers[] PROGMEM = \
+  "Ref, Date, Time, " \
+  WINDSPEED_HEADERS \
+  WIND_DIRECTION_HEADERS \
+  TEMPERATURE_HEADERS \
+  EXTERNAL_VOLTS_HEADERS \
+  EXTERNAL_AMPS_HEADERS \
+  "Batt V";
+  
+  
+const char s_pstr_initialised[] PROGMEM = "Init SD OK. Headers:";
 const char s_pstr_not_initialised[] PROGMEM = "Init SD Failed";
 const char s_pstr_noSD[] PROGMEM = "No SD card";
 const char s_pstrerroropen[] PROGMEM = "Error open";
@@ -135,6 +141,7 @@ void SD_Setup()
   	if(APP_InDebugMode())
   	{
   		Serial.println(PStringToRAM(s_pstr_initialised));
+      Serial.println(PStringToRAM(s_pstr_headers));
   	}
   }
 }
@@ -291,22 +298,36 @@ void SD_CreateFileForToday()
   s_accumulator.writeString(current_date);
   s_accumulator.writeChar(comma);
   s_accumulator.writeString(current_time);
+  
+  #if READ_WINDSPEED == 1
   s_accumulator.writeChar(comma);
   WIND_WritePulseCountToBuffer(0, &s_accumulator);
   s_accumulator.writeChar(comma);
   WIND_WritePulseCountToBuffer(1, &s_accumulator);
+  #endif
+
+  #if READ_WIND_DIRECTION == 1
   s_accumulator.writeChar(comma);
   WIND_WriteDirectionToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
-  #if READ_TEMPERATURE == 1
-  TEMP_WriteTemperatureToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
   #endif
-  BATT_WriteVoltageToBuffer(&s_accumulator);
+
+  #if READ_TEMPERATURE == 1
+  s_accumulator.writeChar(comma);
+  TEMP_WriteTemperatureToBuffer(&s_accumulator);
+  #endif
+
+  #if READ_EXTERNAL_VOLTS == 1
   s_accumulator.writeChar(comma);
   VA_WriteExternalVoltageToBuffer(&s_accumulator);
+  #endif
+  
+  #if READ_EXTERNAL_AMPS == 1
   s_accumulator.writeChar(comma);
   VA_WriteExternalCurrentToBuffer(&s_accumulator);
+  #endif
+
+  s_accumulator.writeChar(comma); 
+  BATT_WriteVoltageToBuffer(&s_accumulator);
 
   /*
   int index;

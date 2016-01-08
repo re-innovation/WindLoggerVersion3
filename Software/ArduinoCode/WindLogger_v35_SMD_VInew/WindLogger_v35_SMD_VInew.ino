@@ -312,6 +312,8 @@ void setup()
   // read the current gain value
   VA_SetCurrentGain( EEPROM_GetCurrentGain() );
   
+  WIND_SetWindvanePosition( EEPROM_GetWindwavePosition() );
+  
   // Interrupt for the 1Hz signal from the RTC
   RTC_EnableInterrupt();
 

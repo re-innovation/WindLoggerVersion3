@@ -19,4 +19,7 @@ void EEPROM_SetR2(uint16_t r2);
 uint16_t EEPROM_GetCurrentGain(void);
 void EEPROM_SetCurrentGain(uint16_t currentGain);
 
+bool EEPROM_GetWindwavePosition(void);
+void EEPROM_SetWindwavePosition(bool set);
+
 #endif

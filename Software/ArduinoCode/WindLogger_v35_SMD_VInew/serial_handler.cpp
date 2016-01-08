@@ -18,6 +18,7 @@
 #include "rtc.h"
 #include "utility.h"
 #include "external_volts_amps.h"
+#include "wind.h"
 
 /*
  * Private Variables
@@ -162,7 +163,7 @@ void SERIAL_HandleCalibrationData()
                     VA_StoreNewCurrentOffset();
                 }
 
-                if(s_strBuffer[i]=='V'&&s_strBuffer[i+1]=='1')
+                if(s_strBuffer[i]=='V' && s_strBuffer[i+1]=='1')
                 {
                     char temp[] = "000";
                     temp[0] = s_strBuffer[i+2];
@@ -172,7 +173,7 @@ void SERIAL_HandleCalibrationData()
                     VA_StoreNewResistor1(value);
                 }
 
-                if(s_strBuffer[i]=='V'&&s_strBuffer[i+1]=='2')
+                if(s_strBuffer[i]=='V' && s_strBuffer[i+1]=='2')
                 {    
                     char temp[] = "000";
                     temp[0] = s_strBuffer[i+2];
@@ -190,7 +191,19 @@ void SERIAL_HandleCalibrationData()
                     temp[2] = s_strBuffer[i+3];
                     int value = atoi(temp);
                     VA_StoreNewCurrentGain(value);
-                }          
+                }   
+
+                if(s_strBuffer[i]=='W')
+                {    
+                    if (s_strBuffer[i+1]=='1')
+                    {
+                        WIND_SetWindvanePosition(true);
+                    }
+                    else if (s_strBuffer[i+1]=='0')
+                    {
+                        WIND_SetWindvanePosition(false);
+                    }
+                }       
             }
             s_strBuffer[0] = '\0';
             s_index = 0;  // Reset the buffer to be filled again 

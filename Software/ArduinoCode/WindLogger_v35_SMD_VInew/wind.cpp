@@ -12,6 +12,7 @@
 #define LIBCALL_ENABLEINTERRUPT
 #include <EnableInterrupt.h>
 
+#include "eeprom_storage.h"
 #include "utility.h"
 #include "wind.h"
 #include "app.h"
@@ -19,6 +20,7 @@
 /* 
  * Private Variables
  */
+
 /********** Wind Direction Storage *************/
 static char s_windDirection[3]; // Hold "N", "NE", "E" etc. strings
 static int s_windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds count of each cardinal wind direction
@@ -26,6 +28,12 @@ static int s_windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds count of each ca
 // Variables for the Pulse Counter
 static volatile long s_livePulseCounters[2] = {0, 0};  // This counts pulses from the flow sensor  - Needs to be long to hold number
 static volatile long s_pulseCountersOld[2] = {0, 0};  // This is storage for the old flow sensor - Needs to be long to hold number
+
+static bool s_windwave_is_at_top_of_divider = false;
+
+const char s_pstr_windwave_position[] PROGMEM = "Vane position: ";
+const char s_pstr_top[] PROGMEM = "top";
+const char s_pstr_bottom[] PROGMEM = "bottom";
 
 /* 
  * Private Functions
@@ -85,6 +93,18 @@ void WIND_SetupWindPulseInterrupts()
 	enableInterrupt(ANEMOMETER2, &pulse2, FALLING); 
 }
 
+/* 
+ * WIND_SetWindvanePosition
+ * Configures the electrical position of the windvane (top or bottom of a potential divider)
+ */
+void WIND_SetWindvanePosition(bool windwave_is_at_top_of_divider)
+{
+	s_windwave_is_at_top_of_divider = windwave_is_at_top_of_divider;
+	EEPROM_SetWindwavePosition(s_windwave_is_at_top_of_divider);
+	Serial.print(PStringToRAM(s_pstr_windwave_position));
+	Serial.println(PStringToRAM(windwave_is_at_top_of_divider ? s_pstr_top : s_pstr_bottom ));
+}
+
 // ******** CALC DIRECTION *********
 // This routine takes in an analog read value and converts it into a wind direction
 // The Wind vane uses a series of resistors to show what direction the wind comes from
@@ -106,7 +126,11 @@ void WIND_SetupWindPulseInterrupts()
 void WIND_ConvertWindDirection(int reading)
 {
 
- // The reading has come from the ADC
+	if (s_windwave_is_at_top_of_divider)
+	{
+		reading = 1023 - reading;
+	}
+	
 	if(reading>0&&reading<100)
 	{
 		s_windDirectionArray[6]++;

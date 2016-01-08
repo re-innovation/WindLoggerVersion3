@@ -23,7 +23,6 @@
  * Private Variables
  */
 
-static char s_next_byte;
 static char s_strBuffer[128];
 static int s_index = 0;
 
@@ -85,7 +84,7 @@ static void setDateFromBuffer(int i)
     temp[0] = s_strBuffer[i+3]; temp[1] = s_strBuffer[i+4];
     int month = atoi(temp);
 
-    temp[0] = s_strBuffer[i+5]; temp[6] = s_strBuffer[i+4];
+    temp[0] = s_strBuffer[i+5]; temp[1] = s_strBuffer[i+6];
     int year = atoi(temp);
     
     RTC_SetDate(day, month, year);
@@ -121,12 +120,16 @@ static void setSampleTimeFromBuffer(int i)
  */
 void SERIAL_HandleCalibrationData()
 {
+    char next_byte = '\0';
     if (Serial.available() > 0) 
     {
-        s_next_byte = Serial.read(); 
-        s_strBuffer[s_index++] = s_next_byte;
+        while(Serial.available() && next_byte != 'E')
+        {
+            next_byte = Serial.read(); 
+            s_strBuffer[s_index++] = next_byte;
+        }
 
-        if (s_next_byte=='E')    // We read everything up to the byte 'E' which stands for END
+        if (next_byte=='E')    // We read everything up to the byte 'E' which stands for END
         {
             int buffer_length = strlen(s_strBuffer);  // We also find the length of the string so we know how many char to display 
             // Depending upon what came before we update different values

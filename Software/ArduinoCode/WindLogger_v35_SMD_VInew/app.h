@@ -20,6 +20,9 @@
 // If READ_WIND_DIRECTION is 1, the windspeed will be read and included in serial data
 #define READ_WIND_DIRECTION 1
 
+// If READ_IRRADIANCE is 1, the irradiance will be read and included in serial data
+#define READ_IRRADIANCE 1
+
 /*
  * Application functions
  */

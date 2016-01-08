@@ -22,12 +22,16 @@
  */
 
 /********** Wind Direction Storage *************/
+#if READ_WIND_DIRECTION
 static char s_windDirection[3]; // Hold "N", "NE", "E" etc. strings
 static int s_windDirectionArray[] = {0,0,0,0,0,0,0,0};  //Holds count of each cardinal wind direction
+#endif
 
 // Variables for the Pulse Counter
+#if READ_WINDSPEED
 static volatile long s_livePulseCounters[2] = {0, 0};  // This counts pulses from the flow sensor  - Needs to be long to hold number
 static volatile long s_pulseCountersOld[2] = {0, 0};  // This is storage for the old flow sensor - Needs to be long to hold number
+#endif
 
 static bool s_windwave_is_at_top_of_divider = false;
 
@@ -39,6 +43,7 @@ const char s_pstr_bottom[] PROGMEM = "bottom";
  * Private Functions
  */
 
+#if READ_WINDSPEED == 1
 /***************************************************
  *  Name:        pulse1
  *
@@ -74,10 +79,13 @@ static void pulse2(void)
   s_livePulseCounters[1]++;
   // ***TO DO**** Might need to debounce this
 }
+#endif
 
 /* 
  * Public Functions
  */
+
+#if READ_WINDSPEED == 1
 
 /* 
  * WIND_SetupWindPulseInterrupts
@@ -93,6 +101,90 @@ void WIND_SetupWindPulseInterrupts()
 	enableInterrupt(ANEMOMETER2, &pulse2, FALLING); 
 }
 
+void WIND_WritePulseCountToBuffer(uint8_t counter, FixedLengthAccumulator * accum)
+{
+	if (!accum) { return; }
+	char temp[16];
+
+	if (counter < 2)
+	{
+		(void)ltoa(s_pulseCountersOld[counter], temp, 10);
+		accum->writeString(temp);
+	}
+	else
+	{
+		accum->writeString("??");
+	}
+}
+
+/* 
+ * WIND_GetLivePulseCount
+ * Called by application to get the live pulse count
+ */
+long WIND_GetLivePulseCount(uint8_t counter)
+{
+	long count;
+
+	switch(counter)
+	{
+		case 0:
+			count = s_livePulseCounters[0];
+			break;
+		case 1:
+			count = s_livePulseCounters[1];
+			break;
+		default:
+			count = 0;
+			break;
+	}
+
+	return count;
+}
+
+
+/* 
+ * WIND_StoreWindPulseCounts
+ * Saves the latest pulse counts and resets the live counts
+ */
+void WIND_StoreWindPulseCounts()
+{
+	s_pulseCountersOld[0] = s_livePulseCounters[0];
+    s_pulseCountersOld[1] = s_livePulseCounters[1];
+    s_livePulseCounters[0] = 0;
+    s_livePulseCounters[1] = 0;
+}
+
+/* 
+ * WIND_Debug
+ * Output debugging strings if in debug mode
+ */
+void WIND_Debug()
+{
+	if (APP_InDebugMode())
+	{
+		Serial.print("Anemometer1: ");
+	    Serial.println(WIND_GetLivePulseCount(0));
+	    Serial.print("Anemometer2: ");
+	    Serial.println(WIND_GetLivePulseCount(1));
+	    Serial.flush();
+	}
+}
+
+#else
+void WIND_SetupWindPulseInterrupts() {}
+void WIND_WritePulseCountToBuffer(uint8_t counter, FixedLengthAccumulator * accum)
+{
+	(void)counter;
+	(void)accum;
+}
+long WIND_GetLivePulseCount(uint8_t counter) { (void)counter; return 0;}
+void WIND_StoreWindPulseCounts() {}
+void WIND_Debug() {};
+
+#endif
+
+#if READ_WIND_DIRECTION == 1
+
 /* 
  * WIND_SetWindvanePosition
  * Configures the electrical position of the windvane (top or bottom of a potential divider)
@@ -105,7 +197,7 @@ void WIND_SetWindvanePosition(bool windwave_is_at_top_of_divider)
 	Serial.println(PStringToRAM(windwave_is_at_top_of_divider ? s_pstr_top : s_pstr_bottom ));
 }
 
-// ******** CALC DIRECTION *********
+// ******** WIND_ConvertWindDirection *********
 // This routine takes in an analog read value and converts it into a wind direction
 // The Wind vane uses a series of resistors to show what direction the wind comes from
 // The different values are (with a 10k to Ground):
@@ -228,76 +320,16 @@ void WIND_AnalyseWindDirection()
 	}
 }
 
-void WIND_WritePulseCountToBuffer(uint8_t counter, FixedLengthAccumulator * accum)
-{
-	if (!accum) { return; }
-	char temp[16];
-
-	if (counter < 2)
-	{
-		(void)ltoa(s_pulseCountersOld[counter], temp, 10);
-		accum->writeString(temp);
-	}
-	else
-	{
-		accum->writeString("??");
-	}
-}
-
 void WIND_WriteDirectionToBuffer(FixedLengthAccumulator * accum)
 {
 	if (!accum) { return; }
 	accum->writeString(s_windDirection);
 }
 
-/* 
- * WIND_GetLivePulseCount
- * Called by application to get the live pulse count
- */
-long WIND_GetLivePulseCount(uint8_t counter)
-{
-	long count;
+#else
 
-	switch(counter)
-	{
-		case 0:
-			count = s_livePulseCounters[0];
-			break;
-		case 1:
-			count = s_livePulseCounters[1];
-			break;
-		default:
-			count = 0;
-			break;
-	}
+void WIND_ConvertWindDirection(int reading) { (void)reading; }
+void WIND_AnalyseWindDirection() {}
+void WIND_WriteDirectionToBuffer(FixedLengthAccumulator * accum) { (void)accum; }
 
-	return count;
-}
-
-/* 
- * WIND_GetWindDirectionStr
- * Saves the latest pulse counts and resets the live counts
- */
-void WIND_StoreWindPulseCounts()
-{
-	s_pulseCountersOld[0] = s_livePulseCounters[0];
-    s_pulseCountersOld[1] = s_livePulseCounters[1];
-    s_livePulseCounters[0] = 0;
-    s_livePulseCounters[1] = 0;
-}
-
-/* 
- * WIND_Debug
- * Output debugging strings if in debug mode
- */
-void WIND_Debug()
-{
-	if (APP_InDebugMode())
-	{
-		Serial.print("Anemometer1: ");
-	    Serial.println(WIND_GetLivePulseCount(0));
-	    Serial.print("Anemometer2: ");
-	    Serial.println(WIND_GetLivePulseCount(1));
-	    Serial.flush();
-	}
-}
+#endif

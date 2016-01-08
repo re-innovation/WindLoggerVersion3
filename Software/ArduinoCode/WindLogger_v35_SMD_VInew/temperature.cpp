@@ -36,12 +36,12 @@ struct thermistor
 	float R0;
 };
 
+#if READ_TEMPERATURE == 1
+
 // Choose one thermsitor (comment out the others)
 //static struct thermistor s_thermistor = {4300.0f,298.15f,10000.0f};			// Epicos K164 10K
 static struct thermistor s_thermistor = {4126.0f,298.15f,10000.0f};					// GT 10K
 //static struct thermistor s_thermistor = {4090.0f,298.15f,47000.0f};	// Vishay 10K
-
-#if READ_TEMPERATURE == 1
 
 static float s_tempC = 0;  // This holds the converted value of temperature
 static char s_tempCstr[6];  // A string buffer to hold the converted string

@@ -27,7 +27,8 @@ enum eeprom_locations_enum
 	LOC_CURRENT_OFFSET = 4,
 	LOC_R1 = 6,
 	LOC_R2 = 8,
-	LOC_CURRENT_GAIN = 10
+	LOC_CURRENT_GAIN = 10,
+	LOC_WINDVANE_POSITION = 12
 };
 
 /*
@@ -111,4 +112,14 @@ void EEPROM_SetCurrentGain(uint16_t currentGain)
 {
     EEPROM.write(LOC_CURRENT_GAIN, currentGain >> 8);
     EEPROM.write(LOC_CURRENT_GAIN+1, currentGain & 0xff);  
+}
+
+bool EEPROM_GetWindwavePosition(void)
+{
+	return (bool)EEPROM.read(LOC_WINDVANE_POSITION);
+}
+
+void EEPROM_SetWindwavePosition(bool set)
+{
+	EEPROM.write(LOC_WINDVANE_POSITION, (char)set);	
 }

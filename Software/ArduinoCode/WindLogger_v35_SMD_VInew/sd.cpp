@@ -13,14 +13,16 @@
 #include <SdFat.h>
 
 /************ Application Libraries*****************************/
+
+#include "app.h"
 #include "utility.h"
 #include "battery.h"
 #include "external_volts_amps.h"
 #include "wind.h"
 #include "temperature.h"
+#include "irradiance.h"
 #include "rtc.h"
 #include "sd.h"
-#include "app.h"
 
 /*
  * Defines
@@ -58,13 +60,19 @@ static char comma = ',';
 
 // These are Char Strings - they are stored in program memory to save space in data memory
 // These are a mixutre of error messages and serial printed information
-#if READ_TEMPERATURE == 1
-const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Temp C, Batt V, Ext V, Current";
-#else
-const char s_pstr_headers[] PROGMEM = "Ref, Date, Time, RPM, Wind, Direction, Batt V, Ext V, Current";
-#endif
-
-const char s_pstr_initialised[] PROGMEM = "Init SD OK";
+// These MUST be in the same order as the fields are written to the CSV file!
+const char s_pstr_headers[] PROGMEM = \
+  "Ref, Date, Time, " \
+  WINDSPEED_HEADERS \
+  WIND_DIRECTION_HEADERS \
+  TEMPERATURE_HEADERS \
+  IRRADIANCE_HEADERS \
+  EXTERNAL_VOLTS_HEADERS \
+  EXTERNAL_AMPS_HEADERS \
+  "Batt V";
+  
+  
+const char s_pstr_initialised[] PROGMEM = "Init SD OK. Headers:";
 const char s_pstr_not_initialised[] PROGMEM = "Init SD Failed";
 const char s_pstr_noSD[] PROGMEM = "No SD card";
 const char s_pstrerroropen[] PROGMEM = "Error open";
@@ -73,6 +81,41 @@ const char s_pstr_file_already_exists[] PROGMEM = "File already exists";
 /*
  * Private Functions
  */
+
+static void write_configurable_fields(FixedLengthAccumulator * accum)
+{
+  #if READ_WINDSPEED == 1
+  accum->writeChar(comma);
+  WIND_WritePulseCountToBuffer(0, accum);
+  accum->writeChar(comma);
+  WIND_WritePulseCountToBuffer(1, accum);
+  #endif
+
+  #if READ_WIND_DIRECTION == 1
+  accum->writeChar(comma);
+  WIND_WriteDirectionToBuffer(accum);
+  #endif
+
+  #if READ_TEMPERATURE == 1
+  accum->writeChar(comma);
+  TEMP_WriteTemperatureToBuffer(accum);
+  #endif
+
+  #if READ_IRRADIANCE == 1
+  accum->writeChar(comma);
+  IRR_WriteIrradianceToBuffer(accum);
+  #endif
+
+  #if READ_EXTERNAL_VOLTS == 1
+  accum->writeChar(comma);
+  VA_WriteExternalVoltageToBuffer(accum);
+  #endif
+  
+  #if READ_EXTERNAL_AMPS == 1
+  accum->writeChar(comma);
+  VA_WriteExternalCurrentToBuffer(accum);
+  #endif
+}
 
 /*
  * writeDataString
@@ -135,6 +178,7 @@ void SD_Setup()
   	if(APP_InDebugMode())
   	{
   		Serial.println(PStringToRAM(s_pstr_initialised));
+      Serial.println(PStringToRAM(s_pstr_headers));
   	}
   }
 }
@@ -291,49 +335,11 @@ void SD_CreateFileForToday()
   s_accumulator.writeString(current_date);
   s_accumulator.writeChar(comma);
   s_accumulator.writeString(current_time);
-  s_accumulator.writeChar(comma);
-  WIND_WritePulseCountToBuffer(0, &s_accumulator);
-  s_accumulator.writeChar(comma);
-  WIND_WritePulseCountToBuffer(1, &s_accumulator);
-  s_accumulator.writeChar(comma);
-  WIND_WriteDirectionToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
-  #if READ_TEMPERATURE == 1
-  TEMP_WriteTemperatureToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
-  #endif
-  BATT_WriteVoltageToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
-  VA_WriteExternalVoltageToBuffer(&s_accumulator);
-  s_accumulator.writeChar(comma);
-  VA_WriteExternalCurrentToBuffer(&s_accumulator);
 
-  /*
-  int index;
-  s_dataString[index++] = s_deviceID[0];
-  s_dataString[index++] = s_deviceID[1];
-  s_dataString[index++] = comma;
-  memcpy(&s_dataString[index], current_date, 10); index += 10; // Date is exactly 10 chars long
-  s_dataString[index++] = comma;
-  memcpy(&s_dataString[index], current_time, 8); index += 8; // Time is exactly 8 chars long
-  s_dataString[index++] = comma;
-  index += WIND_WritePulseCountToBuffer(0, &s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += WIND_WritePulseCountToBuffer(1, &s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += WIND_WriteDirectionToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  #if READ_TEMPERATURE == 1
-  index += TEMP_WriteTemperatureToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  #endif
-  index += BATT_WriteVoltageToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += VA_WriteExternalVoltageToBuffer(&s_dataString[index]);
-  s_dataString[index++] = comma;
-  index += VA_WriteExternalCurrentToBuffer(&s_dataString[index]);
-  s_dataString[index++] = '\0';
-  */
+  write_configurable_fields(&s_accumulator);
+
+  s_accumulator.writeChar(comma); 
+  BATT_WriteVoltageToBuffer(&s_accumulator);
 
   // ************** Write it to the SD card *************
   // This depends upon the card detect.

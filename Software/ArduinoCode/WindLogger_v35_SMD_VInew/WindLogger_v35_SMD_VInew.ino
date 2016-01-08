@@ -135,6 +135,7 @@
 
 /************ Application Libraries*****************************/
 
+#include "app.h"
 #include "utility.h"
 #include "sleep.h"
 #include "eeprom_storage.h"
@@ -145,7 +146,6 @@
 #include "temperature.h"
 #include "rtc.h"
 #include "sd.h"
-#include "app.h"
 
 /********* I/O Pins *************/
 #define RED_LED_PIN 4      // The output led is on pin 4
@@ -311,6 +311,8 @@ void setup()
 
   // read the current gain value
   VA_SetCurrentGain( EEPROM_GetCurrentGain() );
+  
+  WIND_SetWindvanePosition( EEPROM_GetWindwavePosition() );
   
   // Interrupt for the 1Hz signal from the RTC
   RTC_EnableInterrupt();

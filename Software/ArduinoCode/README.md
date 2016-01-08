@@ -30,6 +30,44 @@
 
   In order to build the software, additional arduino libraries are required.
   
+  ### Logger configuration
+
+  In app.h, you can set which fields are recorded.
+  Each field has a READ define (for example READ_TEMPERATURE).
+  To enable recording of this field, set this define to 1.
+  To disable recording of this field, set this define to 0.
+  
+  ### Adding new fields
+
+  To add a new field to the logger software (for example pressure):
+  1. Create a define in app.h that will enable/disable the new field (for example READ_PRESSURE)
+  2. Create the module .cpp and .h files. In the .h file, define the headers, e.g.
+
+  ```
+  #if READ_PRESSURE == 1
+  #define PRESSURE_HEADERS "Pressure mb, "
+  #else
+  #define PRESSURE_HEADERS ""
+  #endif
+  ```
+
+  3. In sd.cpp:
+    1. Add the header entry to the s_pstr_headers string in the desired position. Be sure to add a trailing slash as per the exisiting entries.
+    2. Find the write_configurable_fields function.
+      * Add the necessary lines of code to write the new data string to the accumulator.
+      * Ensure you surround the new code with ifdef...endif for the field.
+      * Ensure you include the line to add a comma before the data.
+      For example:
+
+  ```
+  #if READ_PRESSURE == 1
+  accum->writeChar(comma);
+  PRESS_WritePressureToBuffer(accum);
+  #endif
+
+  ```
+
+
 ### Required libraries:
   ####[https://github.com/GreyGnome/EnableInterrupt](EnableInterrupt by Mike Schwager)
 
@@ -87,6 +125,11 @@
   "I???E"
   
   This sets the current gain value, in mV/A
+
+  "W1E" or "W0E" 
+  
+  "W1E" sets the windwave potentiometer to be on the HIGH side of the potential divider.
+  "W0E" sets the windwave potentiometer to be on the LOW side of the potential divider.
 
 ## Pin Assignments
   

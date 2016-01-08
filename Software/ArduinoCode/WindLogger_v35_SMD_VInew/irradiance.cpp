@@ -47,8 +47,9 @@ const char s_pstr_irradiance_dbg[] PROGMEM = "Irradiance: ";
 
 static float reading_to_irridiance(uint16_t reading)
 {
-  (void)reading;
-  return 0.0f; //TODO; conversion!
+  //TODO; actual conversion!
+  float result = reading * 2.0f + 46.7f;
+  return result; 
 }
 
 /*
@@ -62,7 +63,7 @@ void IRR_WriteIrradianceToBuffer(FixedLengthAccumulator * accum)
   uint16_t reading = analogRead(IRRADIANCE_PIN);
   float irr = reading_to_irridiance(reading);
   
-  char buffer[6];
+  char buffer[10];
   dtostrf(irr, 2, 2, buffer);  // Convert the irradiance value (double) into a string
 
   accum->writeString(buffer);

@@ -24,7 +24,7 @@
  * Private Variables
  */
 
-static char s_strBuffer[128];
+static char s_strBuffer[64];
 static int s_index = 0;
 
 const char reference[] PROGMEM = "The ref is:";
@@ -61,7 +61,7 @@ static void setTimeFromBuffer(int i)
     temp[0] = s_strBuffer[i+3]; temp[1] = s_strBuffer[i+4];
     int minute = atoi(temp);
 
-    temp[0] = s_strBuffer[i+5]; temp[6] = s_strBuffer[i+4];
+    temp[0] = s_strBuffer[i+5]; temp[1] = s_strBuffer[i+6];
     int second = atoi(temp);
     
     //hr, min, sec into Real Time Clock
@@ -109,6 +109,7 @@ static void setSampleTimeFromBuffer(int i)
     Serial.println(sampleTime);
 
     SD_ResetCounter();
+    SD_SetSampleTime(sampleTime);
 }
 
 /*

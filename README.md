@@ -7,7 +7,7 @@ This is a work in progress.
 In this repository there are:
 
 #Software
-This contains the Arduino code for the unit
+This contains the Arduino code for the unit. See the README.md file in that folder for installation and use information.
 
 #KiCAD Files
 Has the Schematics and PCB files done in KiCAD

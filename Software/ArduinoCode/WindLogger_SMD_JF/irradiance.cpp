@@ -47,8 +47,9 @@ const char s_pstr_irradiance_dbg[] PROGMEM = "Irradiance: ";
 
 static float reading_to_irridiance(uint16_t reading)
 {
-  //TODO; actual conversion!
-  float result = reading * 2.0f + 46.7f;
+  // From testing Approx 1mV = 1.1w/m2
+  // This conversion is APPROXIMATE and from testing.
+  float result = (reading * 3000.0f )/ 1024;
   return result; 
 }
 
@@ -64,7 +65,7 @@ void IRR_WriteIrradianceToBuffer(FixedLengthAccumulator * accum)
   float irr = reading_to_irridiance(reading);
   
   char buffer[10];
-  dtostrf(irr, 2, 2, buffer);  // Convert the irradiance value (double) into a string
+  dtostrf(irr, 2, 0, buffer);  // Convert the irradiance value (double) into a string
 
   accum->writeString(buffer);
 

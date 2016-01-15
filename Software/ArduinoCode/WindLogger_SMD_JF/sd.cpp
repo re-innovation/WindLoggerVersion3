@@ -276,7 +276,7 @@ void SD_CreateFileForToday()
   s_writePending = true;
  }
 
- void SD_WriteData()
+ void update_data()
  {
   const char * current_date;
   const char * current_time;
@@ -321,13 +321,6 @@ void SD_CreateFileForToday()
   current_date = RTC_GetDate(RTCC_DATE_WORLD);
   current_time = RTC_GetTime();
 
-  if(strcmp(current_date, s_last_used_date) != 0)
-  {
-     // If date has changed then create a new file
-     memcpy(s_last_used_date, current_date, 10);
-     SD_CreateFileForToday();  // Create the corrct filename (from date)
-  }    
-
   s_accumulator.reset();
   s_accumulator.writeChar(s_deviceID[0]);
   s_accumulator.writeChar(s_deviceID[1]);
@@ -340,6 +333,21 @@ void SD_CreateFileForToday()
 
   s_accumulator.writeChar(comma); 
   BATT_WriteVoltageToBuffer(&s_accumulator);
+}
+
+void SD_WriteDataToCard()
+{
+  
+  update_data();
+
+  const char * current_date = RTC_GetDate(RTCC_DATE_WORLD);
+  
+  if(strcmp(current_date, s_last_used_date) != 0)
+  {
+     // If date has changed then create a new file
+     memcpy(s_last_used_date, current_date, 10);
+     SD_CreateFileForToday();  // Create the corrct filename (from date)
+  }    
 
   // ************** Write it to the SD card *************
   // This depends upon the card detect.
@@ -370,6 +378,12 @@ void SD_CreateFileForToday()
     s_lastCardDetect = digitalRead(SD_CARD_DETECT_PIN);  // Store the old value of the card detect
     
     s_writePending = false;
+}
+
+void SD_PrintDataToSerial()
+{
+  update_data();
+  Serial.println(s_dataString);
 }
 
 /***************************************************

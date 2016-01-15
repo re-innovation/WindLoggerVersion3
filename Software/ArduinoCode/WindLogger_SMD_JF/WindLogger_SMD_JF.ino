@@ -241,8 +241,8 @@ static void handleCalibration()
   Serial.println("Calibrate");    
   SERIAL_HandleCalibrationData();
   delay(500);  // Some time to read data
-  Serial.flush();    // Force out the end of the serial data 
-  SD_ForcePendingWrite();
+  SD_PrintDataToSerial(); 
+  Serial.flush();    // Force out the end of the serial data
 }
 
 /***************************************************
@@ -346,7 +346,7 @@ void loop()
   if(SD_WriteIsPending())
   {  
     ledOn();
-    SD_WriteData();
+    SD_WriteDataToCard();
     // Finish up write routine here:    
     ledOff();
     Serial.flush();    // Force out the end of the serial data

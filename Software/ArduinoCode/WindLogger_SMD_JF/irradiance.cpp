@@ -35,14 +35,11 @@ const char s_pstr_irradiance_dbg[] PROGMEM = "Irradiance: ";
  * Private Functions
  */
 
-/* thermistor_to_temperature
+/* reading_to_irridiance
  * Outputs: 
- * 	the actual temperature (float)
+ * 	The irradiance in W/m^2 (watts per meter squared)
  * Inputs:
- * 	1.AnalogInputNumber - analog input to read from
- * 	2.OuputUnit - output in celsius, kelvin or fahrenheit
- * 	3. Your balance resistor resistance in ohms
- *	4. Set true if thermistor is a pullup
+ * 	1.The raw analog input reading
  */
 
 static float reading_to_irridiance(uint16_t reading)
